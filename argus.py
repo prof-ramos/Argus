@@ -1,4 +1,5 @@
 import asyncio
+import os
 import webbrowser
 from typing import Optional
 
@@ -41,13 +42,14 @@ def search(
     ai: bool = typer.Option(False, "--ai", help="Executa analise com OpenAI"),
     output_format: str = typer.Option("cli", "--format", "-f", help="cli, json ou html"),
     open_browser: bool = typer.Option(False, "--open", help="Abre relatorio HTML"),
+    api_key: Optional[str] = typer.Option(None, "--api-key", help="OpenAI API Key para uso inline"),
 ):
     """Busca e analisa presenca online."""
     if not username and not email:
         console.print("[red]Especifique --username ou --email.[/red]")
         raise typer.Exit(code=1)
 
-    if ai and not OPENAI_API_KEY:
+    if ai and not (api_key or OPENAI_API_KEY):
         console.print("[red]OPENAI_API_KEY nao configurada para --ai.[/red]")
         raise typer.Exit(code=1)
 
@@ -72,7 +74,9 @@ def search(
     ai_report = None
     if ai:
         with console.status("[bold cyan]Gerando analise por IA..."):
-            ai_report = ReportGenerator().generate(
+            if api_key:
+                os.environ["OPENAI_API_KEY"] = api_key
+            ai_report = ReportGenerator(api_key=api_key).generate(
                 target,
                 enriched,
                 "username" if username else "email",

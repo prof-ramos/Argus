@@ -40,7 +40,7 @@ class ReportFormatter:
         if ai_report:
             ai_block = f"""
             <section class="ai-section">
-                <h2>Análise por IA</h2>
+                <h2>Análise de IA</h2>
                 <p><strong>{ai_report.profile_type}</strong></p>
                 <p>{ai_report.summary}</p>
                 <p><strong>Score:</strong> {ai_report.digital_footprint_score}/10</p>
@@ -96,6 +96,7 @@ class ReportFormatter:
             console.print(
                 Panel(
                     f"[bold]{ai_report.profile_type}[/bold]\n{ai_report.summary}",
-                    title="Analise por IA",
+                    title="Análise por IA",
                 )
             )
+            console.print(f"[bold yellow]Score: {ai_report.digital_footprint_score}/10[/bold yellow]")

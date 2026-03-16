@@ -9,8 +9,9 @@ from config.settings import LLM_MODEL, LLM_TEMPERATURE, OPENAI_API_KEY
 
 
 class ReportGenerator:
-    def __init__(self) -> None:
-        self.client = OpenAI(api_key=OPENAI_API_KEY)
+    def __init__(self, api_key: Optional[str] = None) -> None:
+        self.api_key = api_key or OPENAI_API_KEY
+        self.client = OpenAI(api_key=self.api_key)
         self.model = LLM_MODEL
 
     def generate(
@@ -19,7 +20,7 @@ class ReportGenerator:
         results: list,
         search_type: str = "username",
     ) -> Optional[AIReport]:
-        if not OPENAI_API_KEY:
+        if not self.api_key:
             raise ValueError("OPENAI_API_KEY nao configurada")
 
         prompt = PromptBuilder.build(username, results, search_type)
