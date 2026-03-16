@@ -1,8 +1,12 @@
 import asyncio
+import logging
 import aiohttp
 from typing import List, Optional
+from urllib.parse import urlparse
 from collectors.base import AccountResult, ResultStatus
 from config.settings import VALIDATE_URLS, VALIDATION_TIMEOUT, FALSE_POSITIVE_SITES
+
+logger = logging.getLogger(__name__)
 
 
 class FalsePositiveFilter:
@@ -13,12 +17,18 @@ class FalsePositiveFilter:
         if not VALIDATE_URLS:
             return results
 
-        tasks = [self._validate_single(r) for r in results]
-        validated = await asyncio.gather(*tasks)
+        connector = aiohttp.TCPConnector(limit=20)
+        timeout = aiohttp.ClientTimeout(total=VALIDATION_TIMEOUT)
+
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            tasks = [self._validate_single(session, r) for r in results]
+            validated = await asyncio.gather(*tasks)
 
         return [r for r in validated if r is not None]
 
-    async def _validate_single(self, result: AccountResult) -> Optional[AccountResult]:
+    async def _validate_single(
+        self, session: aiohttp.ClientSession, result: AccountResult
+    ) -> Optional[AccountResult]:
         if result.status != ResultStatus.FOUND or not result.url:
             return result
 
@@ -26,19 +36,20 @@ class FalsePositiveFilter:
             return None
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    result.url,
-                    timeout=aiohttp.ClientTimeout(total=VALIDATION_TIMEOUT),
-                    allow_redirects=True
-                ) as resp:
-                    if resp.url != result.url and "404" not in str(resp.url):
-                        return None
-
-                    if resp.status == 200:
-                        result.http_status = 200
-                        return result
-                    else:
-                        return None
-        except Exception:
+            async with session.get(result.url, allow_redirects=True) as resp:
+                final_url = str(resp.url)
+                if _is_404_redirect(final_url):
+                    return None
+                if resp.status == 200:
+                    result.http_status = 200
+                    return result
+                return None
+        except Exception as e:
+            logger.debug("Validation failed for %s: %s: %s", result.url, type(e).__name__, e)
             return None
+
+
+def _is_404_redirect(url: str) -> bool:
+    """Return True if the final URL looks like a 404/not-found redirect."""
+    path = urlparse(url).path.lower()
+    return "404" in path or "not-found" in path or "notfound" in path

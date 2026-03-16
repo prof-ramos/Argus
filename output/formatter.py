@@ -1,4 +1,5 @@
 import json
+import html as html_lib
 from typing import List, Dict, Optional
 from ai.models import AIReport
 from config.settings import OUTPUT_DIR
@@ -17,33 +18,44 @@ class ReportFormatter:
 
     @staticmethod
     def to_html(username: str, results: List[Dict], ai_report: Optional[AIReport] = None) -> str:
+        safe_username = html_lib.escape(username)
+
         platforms_html = "\n".join([
             f"""
             <div class="platform-card">
-                <h3>{r['site_name']}</h3>
-                <a href="{r['url']}" target="_blank">{r['url']}</a>
-                <span class="category">{r['metadata']['category']}</span>
+                <h3>{html_lib.escape(r['site_name'])}</h3>
+                <a href="{html_lib.escape(r['url'])}" target="_blank" rel="noopener noreferrer">
+                    {html_lib.escape(r['url'])}
+                </a>
+                <span class="category">{html_lib.escape(r['metadata']['category'])}</span>
             </div>
             """ for r in results
         ])
 
         insights_html = ""
         if ai_report:
+            insights_items = "".join(
+                f"<li>{html_lib.escape(i)}</li>" for i in ai_report.insights
+            )
+            risk_items = "".join(
+                f"<li>{html_lib.escape(f)}</li>" for f in ai_report.risk_flags
+            )
+            tags_str = html_lib.escape(", ".join(ai_report.tags))
             insights_html = f"""
             <section class="ai-section">
                 <h2>Análise de IA</h2>
-                <div class="summary">{ai_report.summary}</div>
-                <h3>{ai_report.profile_type}</h3>
+                <div class="summary">{html_lib.escape(ai_report.summary)}</div>
+                <h3>{html_lib.escape(ai_report.profile_type)}</h3>
                 <div class="score">Score: {ai_report.digital_footprint_score}/10</div>
                 <div class="insights">
                     <h4>Insights:</h4>
-                    <ul>{"".join([f"<li>{i}</li>" for i in ai_report.insights])}</ul>
+                    <ul>{insights_items}</ul>
                 </div>
                 <div class="risks">
                     <h4>Risk Flags:</h4>
-                    <ul>{"".join([f"<li>{f}</li>" for f in ai_report.risk_flags])}</ul>
+                    <ul>{risk_items}</ul>
                 </div>
-                <div class="tags"><strong>Tags:</strong> {", ".join(ai_report.tags)}</div>
+                <div class="tags"><strong>Tags:</strong> {tags_str}</div>
             </section>
             """
 
@@ -51,7 +63,7 @@ class ReportFormatter:
         <html lang="pt-BR">
         <head>
             <meta charset="UTF-8">
-            <title>ARGUS: {username}</title>
+            <title>ARGUS: {safe_username}</title>
             <style>
                 body {{ font-family: -apple-system, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }}
                 .container {{ max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }}
@@ -67,7 +79,7 @@ class ReportFormatter:
         </head>
         <body>
             <div class="container">
-                <h1>ARGUS: {username}</h1>
+                <h1>ARGUS: {safe_username}</h1>
                 <div class="platforms"><h2>Plataformas ({len(results)})</h2>{platforms_html}</div>
                 {insights_html}
             </div>

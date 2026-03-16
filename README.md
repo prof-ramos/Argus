@@ -47,19 +47,19 @@ COLLECTOR_TIMEOUT=15         # timeout dos coletores (segundos)
 
 ```bash
 # Busca por username (saída CLI)
-argus --username johndoe
+argus search --username johndoe
 
 # Busca por email
-argus --email john@example.com
+argus search --email john@example.com
 
 # Busca combinada com análise de IA
-argus --username johndoe --email john@example.com --ai
+argus search --username johndoe --email john@example.com --ai
 
 # Salvar relatório JSON
-argus --username johndoe --format json
+argus search --username johndoe --format json
 
 # Gerar e abrir relatório HTML
-argus --username johndoe --ai --format html --open
+argus search --username johndoe --ai --format html --open
 
 # Ver versão
 argus version

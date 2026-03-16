@@ -1,10 +1,8 @@
 """
 Shared fixtures for ARGUS E2E tests.
 """
-import os
+import copy
 import pytest
-import asyncio
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from typer.testing import CliRunner
 
@@ -120,11 +118,12 @@ def mock_holehe_collect(sample_holehe_results):
 
 @pytest.fixture
 def mock_filter_passthrough():
-    """Patch FalsePositiveFilter._validate_single to return result as-is (no HTTP calls)."""
-    async def passthrough(self, result):
-        if result.status == ResultStatus.FOUND:
-            result.http_status = 200
-        return result
+    """Patch FalsePositiveFilter._validate_single to return a copy of the result (no HTTP calls)."""
+    async def passthrough(self, session, result):
+        result_copy = copy.copy(result)
+        if result_copy.status == ResultStatus.FOUND:
+            result_copy.http_status = 200
+        return result_copy
 
     with patch(
         "processing.filter.FalsePositiveFilter._validate_single",
@@ -157,5 +156,4 @@ def tmp_output_dir(tmp_path, monkeypatch):
     import argus as argus_module
     monkeypatch.setattr(settings, "OUTPUT_DIR", tmp_path)
     monkeypatch.setattr(argus_module, "OUTPUT_DIR", tmp_path)
-    tmp_path.mkdir(parents=True, exist_ok=True)
     return tmp_path

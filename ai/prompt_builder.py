@@ -5,9 +5,13 @@ class PromptBuilder:
     @staticmethod
     def build(username: str, results: List[Dict], search_type: str = "username") -> str:
         platforms = [r["site_name"] for r in results]
-        categories = list(set(r["metadata"]["category"] for r in results))
-        high_value = [r["site_name"] for r in results
-                      if r["metadata"]["data_richness"] == "high"]
+        categories = sorted(set(
+            r.get("metadata", {}).get("category", "unknown") for r in results
+        ))
+        high_value = [
+            r["site_name"] for r in results
+            if r.get("metadata", {}).get("data_richness") == "high"
+        ]
 
         return f"""You are an OSINT analyst specializing in behavioral profiling.
 

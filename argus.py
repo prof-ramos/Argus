@@ -2,8 +2,6 @@ import asyncio
 import typer
 from typing import Optional
 from rich.console import Console
-import json
-from pathlib import Path
 
 from collectors.maigret import MaigreCollector
 from collectors.holehe import HoleheCollector
@@ -23,18 +21,18 @@ def search(
     username: Optional[str] = typer.Option(None, "--username", "-u", help="Username"),
     email: Optional[str] = typer.Option(None, "--email", "-e", help="Email"),
     ai: bool = typer.Option(False, "--ai", help="Análise com IA"),
-    format: str = typer.Option("cli", "--format", "-f", help="Formato: cli, json, html"),
-    open_browser: bool = typer.Option(False, "--open", help="Abrir HTML"),
+    output_format: str = typer.Option("cli", "--format", "-f", help="Formato: cli, json, html"),
+    open_browser: bool = typer.Option(False, "--open", help="Abrir HTML no browser"),
     api_key: Optional[str] = typer.Option(None, "--api-key", help="OpenAI API Key")
 ):
-    """Busca e analisa presença online"""
+    """Busca e analisa presença online."""
 
     if not username and not email:
         console.print("[red]Especifique --username ou --email[/red]")
         raise typer.Exit(1)
 
     if ai and not (api_key or OPENAI_API_KEY):
-        console.print("[red]IA requer OpenAI API Key[/red]")
+        console.print("[red]IA requer OpenAI API Key (--api-key ou variável OPENAI_API_KEY)[/red]")
         raise typer.Exit(1)
 
     # Coleta
@@ -58,25 +56,29 @@ def search(
     # IA
     ai_report = None
     if ai:
-        with console.status("[bold cyan]Analisando..."):
+        with console.status("[bold cyan]Analisando com IA..."):
             gen = ReportGenerator()
-            ai_report = gen.generate(username or email, enriched, "username" if username else "email")
+            ai_report = gen.generate(
+                username or email,
+                enriched,
+                "username" if username else "email"
+            )
 
     # Output
     formatter = ReportFormatter()
 
-    if format == "json":
+    if output_format == "json":
         output = formatter.to_json(username or email, enriched, ai_report)
         print(output)
         output_file = OUTPUT_DIR / f"{username or email}_report.json"
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             f.write(output)
         console.print(f"[green]Salvo: {output_file}[/green]")
 
-    elif format == "html":
+    elif output_format == "html":
         output = formatter.to_html(username or email, enriched, ai_report)
         output_file = OUTPUT_DIR / f"{username or email}_report.html"
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             f.write(output)
         console.print(f"[green]Salvo: {output_file}[/green]")
         if open_browser:
@@ -89,7 +91,7 @@ def search(
 
 @app.command()
 def version():
-    """Versão"""
+    """Exibe a versão do ARGUS."""
     console.print("[bold cyan]ARGUS 1.0.0[/bold cyan]")
 
 

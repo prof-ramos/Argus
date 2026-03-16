@@ -4,12 +4,21 @@ from typing import List
 from .base import AccountResult, ResultStatus
 from config.settings import COLLECTOR_TIMEOUT
 
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
 
 class HoleheCollector:
     def __init__(self):
         self.name = "Holehe"
 
     async def collect(self, email: str) -> List[AccountResult]:
+        if not _EMAIL_RE.match(email):
+            return [AccountResult(
+                site_name="Holehe",
+                status=ResultStatus.ERROR,
+                error=f"Invalid email format: {email!r}"
+            )]
+
         try:
             result = await asyncio.wait_for(
                 self._run_holehe(email),
@@ -22,11 +31,17 @@ class HoleheCollector:
                 status=ResultStatus.TIMEOUT,
                 error="Timeout"
             )]
-        except Exception as e:
+        except (OSError, ValueError) as e:
             return [AccountResult(
                 site_name="Holehe",
                 status=ResultStatus.ERROR,
                 error=str(e)
+            )]
+        except Exception as e:
+            return [AccountResult(
+                site_name="Holehe",
+                status=ResultStatus.ERROR,
+                error=f"{type(e).__name__}: {e}"
             )]
 
     async def _run_holehe(self, email: str) -> str:
@@ -35,7 +50,6 @@ class HoleheCollector:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-
         stdout, _ = await proc.communicate()
         return stdout.decode('utf-8', errors='ignore')
 

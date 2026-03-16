@@ -1,15 +1,25 @@
 import json
+import logging
 from typing import Optional, List, Dict
-from openai import OpenAI
 from ai.models import AIReport
 from ai.prompt_builder import PromptBuilder
 from config.settings import OPENAI_API_KEY, LLM_MODEL, LLM_TEMPERATURE
 
+logger = logging.getLogger(__name__)
+
 
 class ReportGenerator:
     def __init__(self):
-        self.client = OpenAI(api_key=OPENAI_API_KEY)
+        self._client = None
         self.model = LLM_MODEL
+
+    @property
+    def client(self):
+        """Lazy-initialize OpenAI client only when first needed."""
+        if self._client is None:
+            from openai import OpenAI
+            self._client = OpenAI(api_key=OPENAI_API_KEY)
+        return self._client
 
     def generate(self, username: str, results: List[Dict], search_type: str = "username") -> Optional[AIReport]:
         if not OPENAI_API_KEY:
@@ -25,8 +35,17 @@ class ReportGenerator:
                 response_format={"type": "json_object"}
             )
 
-            content = response.choices[0].message.content
-            report_data = json.loads(content)
+            choices = response.choices
+            if not choices:
+                logger.error("OpenAI returned empty choices list")
+                return None
+
+            content = choices[0].message.content
+            try:
+                report_data = json.loads(content)
+            except json.JSONDecodeError as e:
+                logger.error("Failed to parse OpenAI JSON response: %s", e)
+                return None
 
             return AIReport(
                 summary=report_data.get("summary", ""),
@@ -37,11 +56,15 @@ class ReportGenerator:
                 digital_footprint_score=report_data.get("digital_footprint_score", 5),
                 confidence=report_data.get("confidence", "low"),
                 platforms_found=len(results),
-                high_value_platforms=[r["site_name"] for r in results
-                                      if r["metadata"]["data_richness"] == "high"],
-                categories=list(set(r["metadata"]["category"] for r in results))
+                high_value_platforms=[
+                    r["site_name"] for r in results
+                    if r.get("metadata", {}).get("data_richness") == "high"
+                ],
+                categories=sorted(set(
+                    r.get("metadata", {}).get("category", "unknown") for r in results
+                ))
             )
 
         except Exception as e:
-            print(f"Erro: {e}")
+            logger.error("ReportGenerator error: %s: %s", type(e).__name__, e)
             return None

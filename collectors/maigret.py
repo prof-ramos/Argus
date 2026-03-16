@@ -1,5 +1,7 @@
 import json
 import asyncio
+import tempfile
+import os
 from typing import List
 from .base import AccountResult, ResultStatus
 from config.settings import COLLECTOR_TIMEOUT
@@ -22,29 +24,44 @@ class MaigreCollector:
                 status=ResultStatus.TIMEOUT,
                 error="Timeout"
             )]
-        except Exception as e:
+        except (OSError, ValueError) as e:
             return [AccountResult(
                 site_name="Maigret",
                 status=ResultStatus.ERROR,
                 error=str(e)
             )]
+        except Exception as e:
+            return [AccountResult(
+                site_name="Maigret",
+                status=ResultStatus.ERROR,
+                error=f"{type(e).__name__}: {e}"
+            )]
 
     async def _run_maigret(self, username: str) -> dict:
-        output_file = f"/tmp/maigret_{username}.json"
-
-        proc = await asyncio.create_subprocess_exec(
-            "maigret", username, "--json", "--output", output_file,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-
-        await proc.communicate()
+        fd, output_file = tempfile.mkstemp(suffix=".json", prefix="maigret_")
+        os.close(fd)
 
         try:
-            with open(output_file) as f:
-                return json.load(f)
-        except Exception:
-            return {"results": {}}
+            proc = await asyncio.create_subprocess_exec(
+                "maigret", username, "--json", "--output", output_file,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await proc.communicate()
+
+            loop = asyncio.get_event_loop()
+            try:
+                content = await loop.run_in_executor(
+                    None, lambda: open(output_file).read()
+                )
+                return json.loads(content)
+            except (OSError, json.JSONDecodeError):
+                return {"results": {}}
+        finally:
+            try:
+                os.unlink(output_file)
+            except OSError:
+                pass
 
     def _parse_results(self, maigret_output: dict) -> List[AccountResult]:
         results = []
