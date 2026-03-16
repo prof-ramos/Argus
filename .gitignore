@@ -1,7 +1,12 @@
-.DS_Store
-.omx/
 __pycache__/
 *.pyc
-.venv/
-argus_osint.egg-info/
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.env
 reports/
+.pytest_cache/
+.mypy_cache/

@@ -1,35 +1,40 @@
-from typing import Dict, List
+from typing import List, Dict
 
 
 class PromptBuilder:
     @staticmethod
     def build(username: str, results: List[Dict], search_type: str = "username") -> str:
-        platforms = [result["site_name"] for result in results]
-        categories = sorted({result["metadata"]["category"] for result in results})
+        platforms = [r["site_name"] for r in results]
+        categories = sorted(set(
+            r.get("metadata", {}).get("category", "unknown") for r in results
+        ))
         high_value = [
-            result["site_name"]
-            for result in results
-            if result["metadata"]["data_richness"] == "high"
+            r["site_name"] for r in results
+            if r.get("metadata", {}).get("data_richness") == "high"
         ]
 
-        return f"""Voce e um analista OSINT especializado em perfil comportamental.
+        return f"""You are an OSINT analyst specializing in behavioral profiling.
 
-Baseado SOMENTE na lista de plataformas confirmadas, gere um relatorio estruturado.
+Based SOLELY on the list of platforms where a target was found, generate a structured intelligence report.
 
-Alvo: {username}
-Tipo de busca: {search_type}
-Plataformas confirmadas ({len(platforms)}): {", ".join(platforms) if platforms else "nenhuma"}
-Plataformas de alto valor: {", ".join(high_value) if high_value else "nenhuma"}
-Categorias: {", ".join(categories) if categories else "nenhuma"}
+Target: {username}
+Search Type: {search_type}
+Platforms Confirmed ({len(platforms)} total): {", ".join(platforms)}
+High-Value Platforms: {", ".join(high_value) if high_value else "none"}
+Categories Represented: {", ".join(categories)}
 
-Nao invente fatos. Responda em portugues do Brasil.
-Retorne JSON valido com exatamente estes campos:
+Your analysis must be based strictly on known user demographics and behaviors associated with each platform.
+Do NOT invent facts or make unfounded claims.
+
+Generate output as valid JSON with exactly these fields:
 {{
-  "summary": "resumo em 2-3 frases",
-  "profile_type": "rotulo descritivo",
+  "summary": "2-3 sentence narrative profile",
+  "profile_type": "Single descriptive label",
   "insights": ["insight 1", "insight 2"],
-  "risk_flags": ["risco 1", "risco 2"],
+  "risk_flags": ["flag 1", "flag 2"],
   "tags": ["tag1", "tag2"],
   "digital_footprint_score": 5,
-  "confidence": "media"
-}}"""
+  "confidence": "medium"
+}}
+
+Respond in Portuguese (Brazil). Return ONLY valid JSON."""

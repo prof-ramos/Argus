@@ -1,5 +1,5 @@
-from .enricher import Enricher
-from .filter import FalsePositiveFilter
 from .normalizer import Normalizer
+from .filter import FalsePositiveFilter
+from .enricher import Enricher
 
-__all__ = ["Enricher", "FalsePositiveFilter", "Normalizer"]
+__all__ = ["Normalizer", "FalsePositiveFilter", "Enricher"]

@@ -1,101 +1,113 @@
 import json
-from typing import Dict, List, Optional
-
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-
+import html as html_lib
+from typing import List, Dict, Optional
 from ai.models import AIReport
+from config.settings import OUTPUT_DIR
 
 
 class ReportFormatter:
     @staticmethod
-    def to_json(target: str, results: List[Dict], ai_report: Optional[AIReport] = None) -> str:
-        platforms_found = sum(1 for item in results if item["status"] == "found")
+    def to_json(username: str, results: List[Dict], ai_report: Optional[AIReport] = None) -> str:
         report = {
-            "target": target,
-            "platforms_found": platforms_found,
+            "target": username,
+            "platforms_found": len(results),
             "platforms": results,
-            "ai_analysis": ai_report.__dict__ if ai_report else None,
+            "ai_analysis": ai_report.__dict__ if ai_report else None
         }
         return json.dumps(report, indent=2, ensure_ascii=False)
 
     @staticmethod
-    def to_html(target: str, results: List[Dict], ai_report: Optional[AIReport] = None) -> str:
-        platforms_found = sum(1 for item in results if item["status"] == "found")
-        platform_cards = "\n".join(
+    def to_html(username: str, results: List[Dict], ai_report: Optional[AIReport] = None) -> str:
+        safe_username = html_lib.escape(username)
+
+        platforms_html = "\n".join([
             f"""
             <div class="platform-card">
-                <h3>{item["site_name"]}</h3>
-                <p>Status: {item["status"]}</p>
-                <p>Categoria: {item["metadata"]["category"]}</p>
-                <p>{item["metadata"]["description"]}</p>
-                {f'<a href="{item["url"]}" target="_blank">{item["url"]}</a>' if item["url"] else ""}
+                <h3>{html_lib.escape(r['site_name'])}</h3>
+                <a href="{html_lib.escape(r['url'])}" target="_blank" rel="noopener noreferrer">
+                    {html_lib.escape(r['url'])}
+                </a>
+                <span class="category">{html_lib.escape(r['metadata']['category'])}</span>
             </div>
-            """
-            for item in results
-        )
+            """ for r in results
+        ])
 
-        ai_block = ""
+        insights_html = ""
         if ai_report:
-            ai_block = f"""
+            insights_items = "".join(
+                f"<li>{html_lib.escape(i)}</li>" for i in ai_report.insights
+            )
+            risk_items = "".join(
+                f"<li>{html_lib.escape(f)}</li>" for f in ai_report.risk_flags
+            )
+            tags_str = html_lib.escape(", ".join(ai_report.tags))
+            insights_html = f"""
             <section class="ai-section">
-                <h2>Análise por IA</h2>
-                <p><strong>{ai_report.profile_type}</strong></p>
-                <p>{ai_report.summary}</p>
-                <p><strong>Score:</strong> {ai_report.digital_footprint_score}/10</p>
-                <ul>{"".join(f"<li>{item}</li>" for item in ai_report.insights)}</ul>
+                <h2>Análise de IA</h2>
+                <div class="summary">{html_lib.escape(ai_report.summary)}</div>
+                <h3>{html_lib.escape(ai_report.profile_type)}</h3>
+                <div class="score">Score: {ai_report.digital_footprint_score}/10</div>
+                <div class="insights">
+                    <h4>Insights:</h4>
+                    <ul>{insights_items}</ul>
+                </div>
+                <div class="risks">
+                    <h4>Risk Flags:</h4>
+                    <ul>{risk_items}</ul>
+                </div>
+                <div class="tags"><strong>Tags:</strong> {tags_str}</div>
             </section>
             """
 
-        return f"""<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <title>ARGUS: {target}</title>
-  <style>
-    body {{ font-family: Arial, sans-serif; background: #f5f7fb; margin: 0; padding: 24px; }}
-    .container {{ max-width: 960px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 24px; }}
-    .platform-card {{ background: #f8fafc; border-left: 4px solid #2563eb; margin: 12px 0; padding: 16px; }}
-    .ai-section {{ margin-top: 24px; background: #eff6ff; padding: 20px; border-radius: 10px; }}
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>ARGUS: {target}</h1>
-    <h2>Plataformas encontradas: {platforms_found}</h2>
-    {platform_cards or "<p>Nenhuma plataforma encontrada.</p>"}
-    {ai_block}
-  </div>
-</body>
-</html>"""
+        html = f"""<!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <title>ARGUS: {safe_username}</title>
+            <style>
+                body {{ font-family: -apple-system, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }}
+                .container {{ max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }}
+                h1 {{ color: #1a1a2e; border-bottom: 3px solid #4a90d9; padding-bottom: 10px; }}
+                .platform-card {{ background: #f9f9f9; padding: 15px; margin: 10px 0; border-left: 4px solid #4a90d9; }}
+                .platform-card a {{ color: #4a90d9; text-decoration: none; }}
+                .platform-card .category {{ display: inline-block; background: #e0f0ff; color: #0066cc; padding: 2px 8px; margin-left: 10px; font-size: 12px; }}
+                .ai-section {{ background: #f0f8ff; padding: 20px; margin-top: 30px; border-radius: 8px; }}
+                .score {{ font-size: 18px; font-weight: bold; color: #4a90d9; margin: 15px 0; }}
+                .risks {{ color: #e74c3c; margin-top: 15px; }}
+                .tags {{ margin-top: 15px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>ARGUS: {safe_username}</h1>
+                <div class="platforms"><h2>Plataformas ({len(results)})</h2>{platforms_html}</div>
+                {insights_html}
+            </div>
+        </body>
+        </html>"""
+        return html
 
     @staticmethod
-    def to_cli(target: str, results: List[Dict], ai_report: Optional[AIReport] = None) -> None:
-        console = Console()
-        console.print(f"\n[bold cyan]ARGUS: {target}[/bold cyan]\n")
+    def to_cli(username: str, results: List[Dict], ai_report: Optional[AIReport] = None):
+        from rich.console import Console
+        from rich.table import Table
+        from rich.panel import Panel
 
-        table = Table(title="Resultados")
+        console = Console()
+        console.print(f"\n[bold cyan]ARGUS: {username}[/bold cyan]\n")
+
+        table = Table(title="Plataformas Encontradas")
         table.add_column("Site", style="cyan")
-        table.add_column("Status", style="green")
         table.add_column("Categoria", style="magenta")
 
-        for item in results:
-            table.add_row(
-                item["site_name"],
-                item["status"],
-                item["metadata"]["category"],
-            )
+        for r in results:
+            table.add_row(r["site_name"], r["metadata"]["category"])
 
-        if results:
-            console.print(table)
-        else:
-            console.print("[yellow]Nenhum resultado validado encontrado.[/yellow]")
+        console.print(table)
 
         if ai_report:
-            console.print(
-                Panel(
-                    f"[bold]{ai_report.profile_type}[/bold]\n{ai_report.summary}",
-                    title="Analise por IA",
-                )
-            )
+            console.print(Panel(
+                f"[bold]{ai_report.profile_type}[/bold]\n{ai_report.summary}",
+                title="Análise"
+            ))
+            console.print(f"\n[bold yellow]Score: {ai_report.digital_footprint_score}/10[/bold yellow]")

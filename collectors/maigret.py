@@ -5,14 +5,12 @@ import shutil
 import tempfile
 from pathlib import Path
 from typing import List
-
-from config.settings import COLLECTOR_TIMEOUT, MAIGRET_TOP_SITES
-
 from .base import AccountResult, ResultStatus
+from config.settings import COLLECTOR_TIMEOUT, MAIGRET_TOP_SITES
 
 
 class MaigreCollector:
-    def __init__(self) -> None:
+    def __init__(self):
         self.name = "Maigret"
         self.command = "maigret"
 
@@ -20,13 +18,27 @@ class MaigreCollector:
         try:
             result = await asyncio.wait_for(
                 self._run_maigret(username),
-                timeout=COLLECTOR_TIMEOUT,
+                timeout=COLLECTOR_TIMEOUT
             )
             return self._parse_results(result)
         except asyncio.TimeoutError:
-            return [AccountResult(site_name=self.name, status=ResultStatus.TIMEOUT, error="Timeout")]
-        except Exception as exc:
-            return [AccountResult(site_name=self.name, status=ResultStatus.ERROR, error=str(exc))]
+            return [AccountResult(
+                site_name="Maigret",
+                status=ResultStatus.TIMEOUT,
+                error="Timeout"
+            )]
+        except (OSError, ValueError) as e:
+            return [AccountResult(
+                site_name="Maigret",
+                status=ResultStatus.ERROR,
+                error=str(e)
+            )]
+        except Exception as e:
+            return [AccountResult(
+                site_name="Maigret",
+                status=ResultStatus.ERROR,
+                error=f"{type(e).__name__}: {e}"
+            )]
 
     async def _run_maigret(self, username: str) -> dict:
         executable = self._resolve_executable()
@@ -45,7 +57,7 @@ class MaigreCollector:
                 "--no-progressbar",
                 "--no-color",
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
             )
             stdout, stderr = await proc.communicate()
 
@@ -61,7 +73,7 @@ class MaigreCollector:
 
             raw = report_files[0].read_text()
             if not raw.strip():
-                return {"results": {}}
+                return {}
 
             return json.loads(raw)
         finally:
@@ -70,26 +82,21 @@ class MaigreCollector:
             output_dir.rmdir()
 
     def _parse_results(self, maigret_output: dict) -> List[AccountResult]:
-        results: List[AccountResult] = []
+        results = []
+
         for site_name, site_data in maigret_output.items():
             if not isinstance(site_data, dict):
                 continue
-
             status_block = site_data.get("status", {})
-            claimed = (
-                isinstance(status_block, dict)
-                and status_block.get("status") == "Claimed"
-            )
+            claimed = isinstance(status_block, dict) and status_block.get("status") == "Claimed"
+            results.append(AccountResult(
+                site_name=site_name,
+                url=site_data.get("url_user") or (status_block.get("url") if isinstance(status_block, dict) else None),
+                status=ResultStatus.FOUND if claimed else ResultStatus.NOT_FOUND,
+                http_status=site_data.get("http_status"),
+                metadata=site_data
+            ))
 
-            results.append(
-                AccountResult(
-                    site_name=site_name,
-                    url=site_data.get("url_user") or (status_block.get("url") if isinstance(status_block, dict) else None),
-                    status=ResultStatus.FOUND if claimed else ResultStatus.NOT_FOUND,
-                    http_status=site_data.get("http_status"),
-                    metadata=site_data,
-                )
-            )
         return results
 
     def _resolve_executable(self) -> str:

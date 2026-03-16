@@ -1,26 +1,29 @@
 import json
-from typing import Optional
-
-from openai import OpenAI
-
+import logging
+from typing import Optional, List, Dict
 from ai.models import AIReport
 from ai.prompt_builder import PromptBuilder
-from config.settings import LLM_MODEL, LLM_TEMPERATURE, OPENAI_API_KEY
+from config.settings import OPENAI_API_KEY, LLM_MODEL, LLM_TEMPERATURE
+
+logger = logging.getLogger(__name__)
 
 
 class ReportGenerator:
-    def __init__(self) -> None:
-        self.client = OpenAI(api_key=OPENAI_API_KEY)
+    def __init__(self):
+        self._client = None
         self.model = LLM_MODEL
 
-    def generate(
-        self,
-        username: str,
-        results: list,
-        search_type: str = "username",
-    ) -> Optional[AIReport]:
+    @property
+    def client(self):
+        """Lazy-initialize OpenAI client only when first needed."""
+        if self._client is None:
+            from openai import OpenAI
+            self._client = OpenAI(api_key=OPENAI_API_KEY)
+        return self._client
+
+    def generate(self, username: str, results: List[Dict], search_type: str = "username") -> Optional[AIReport]:
         if not OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY nao configurada")
+            raise ValueError("OPENAI_API_KEY not configured")
 
         prompt = PromptBuilder.build(username, results, search_type)
 
@@ -29,9 +32,21 @@ class ReportGenerator:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=LLM_TEMPERATURE,
-                response_format={"type": "json_object"},
+                response_format={"type": "json_object"}
             )
-            report_data = json.loads(response.choices[0].message.content or "{}")
+
+            choices = response.choices
+            if not choices:
+                logger.error("OpenAI returned empty choices list")
+                return None
+
+            content = choices[0].message.content
+            try:
+                report_data = json.loads(content)
+            except json.JSONDecodeError as e:
+                logger.error("Failed to parse OpenAI JSON response: %s", e)
+                return None
+
             return AIReport(
                 summary=report_data.get("summary", ""),
                 profile_type=report_data.get("profile_type", "Unknown"),
@@ -39,15 +54,17 @@ class ReportGenerator:
                 risk_flags=report_data.get("risk_flags", []),
                 tags=report_data.get("tags", []),
                 digital_footprint_score=report_data.get("digital_footprint_score", 5),
-                confidence=report_data.get("confidence", "baixa"),
+                confidence=report_data.get("confidence", "low"),
                 platforms_found=len(results),
                 high_value_platforms=[
-                    result["site_name"]
-                    for result in results
-                    if result["metadata"]["data_richness"] == "high"
+                    r["site_name"] for r in results
+                    if r.get("metadata", {}).get("data_richness") == "high"
                 ],
-                categories=sorted({result["metadata"]["category"] for result in results}),
+                categories=sorted(set(
+                    r.get("metadata", {}).get("category", "unknown") for r in results
+                ))
             )
-        except Exception as exc:
-            print(f"Erro ao gerar relatorio com IA: {exc}")
+
+        except Exception as e:
+            logger.error("ReportGenerator error: %s: %s", type(e).__name__, e)
             return None

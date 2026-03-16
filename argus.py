@@ -1,107 +1,97 @@
 import asyncio
-import webbrowser
-from typing import Optional
-
 import typer
+from typing import Optional
 from rich.console import Console
 
-from ai.report_generator import ReportGenerator
-from collectors.holehe import HoleheCollector
 from collectors.maigret import MaigreCollector
-from config.settings import OPENAI_API_KEY, OUTPUT_DIR
-from output.formatter import ReportFormatter
-from processing.enricher import Enricher
-from processing.filter import FalsePositiveFilter
+from collectors.holehe import HoleheCollector
 from processing.normalizer import Normalizer
+from processing.filter import FalsePositiveFilter
+from processing.enricher import Enricher
+from ai.report_generator import ReportGenerator
+from output.formatter import ReportFormatter
+from config.settings import OPENAI_API_KEY, OUTPUT_DIR
 
 console = Console()
-app = typer.Typer(help="ARGUS - OSINT Suite com IA", rich_markup_mode="rich")
-
-
-async def _collect(username: Optional[str], email: Optional[str]):
-    tasks = []
-    collectors_run = 0
-    if username:
-        tasks.append(MaigreCollector().collect(username))
-        collectors_run += 1
-    if email:
-        tasks.append(HoleheCollector().collect(email))
-        collectors_run += 1
-    return collectors_run, await asyncio.gather(*tasks)
-
-
-def _target_label(username: Optional[str], email: Optional[str]) -> str:
-    return username or email or "unknown"
+app = typer.Typer(help="ARGUS — OSINT Suite com IA", rich_markup_mode="rich")
 
 
 @app.command()
 def search(
-    username: Optional[str] = typer.Option(None, "--username", "-u", help="Username alvo"),
-    email: Optional[str] = typer.Option(None, "--email", "-e", help="Email alvo"),
-    ai: bool = typer.Option(False, "--ai", help="Executa analise com OpenAI"),
-    output_format: str = typer.Option("cli", "--format", "-f", help="cli, json ou html"),
-    open_browser: bool = typer.Option(False, "--open", help="Abre relatorio HTML"),
+    username: Optional[str] = typer.Option(None, "--username", "-u", help="Username"),
+    email: Optional[str] = typer.Option(None, "--email", "-e", help="Email"),
+    ai: bool = typer.Option(False, "--ai", help="Análise com IA"),
+    output_format: str = typer.Option("cli", "--format", "-f", help="Formato: cli, json, html"),
+    open_browser: bool = typer.Option(False, "--open", help="Abrir HTML no browser"),
+    api_key: Optional[str] = typer.Option(None, "--api-key", help="OpenAI API Key")
 ):
-    """Busca e analisa presenca online."""
+    """Busca e analisa presença online."""
+
     if not username and not email:
-        console.print("[red]Especifique --username ou --email.[/red]")
-        raise typer.Exit(code=1)
+        console.print("[red]Especifique --username ou --email[/red]")
+        raise typer.Exit(1)
 
-    if ai and not OPENAI_API_KEY:
-        console.print("[red]OPENAI_API_KEY nao configurada para --ai.[/red]")
-        raise typer.Exit(code=1)
+    if ai and not (api_key or OPENAI_API_KEY):
+        console.print("[red]IA requer OpenAI API Key (--api-key ou variável OPENAI_API_KEY)[/red]")
+        raise typer.Exit(1)
 
-    target = _target_label(username, email)
+    # Coleta
+    with console.status("[bold cyan]Coletando..."):
+        async def collect():
+            tasks = []
+            if username:
+                tasks.append(MaigreCollector().collect(username))
+            if email:
+                tasks.append(HoleheCollector().collect(email))
+            return await asyncio.gather(*tasks)
 
-    with console.status("[bold cyan]Coletando dados..."):
-        collectors_run, all_results = asyncio.run(_collect(username, email))
+        all_results = asyncio.run(collect())
 
-    with console.status("[bold cyan]Processando resultados..."):
+    # Processamento
+    with console.status("[bold cyan]Processando..."):
         normalized = Normalizer.normalize(all_results)
-        summary = Normalizer.summarize(normalized)
         filtered = asyncio.run(FalsePositiveFilter().filter(normalized))
         enriched = Enricher().enrich(filtered)
-        valid_found = sum(1 for item in enriched if item["status"] == "found")
 
-    console.print(
-        f"[cyan]Coletores executados:[/cyan] {collectors_run} | "
-        f"[yellow]falhas:[/yellow] {summary['collector_failures']} | "
-        f"[green]plataformas validas:[/green] {valid_found}"
-    )
-
+    # IA
     ai_report = None
     if ai:
-        with console.status("[bold cyan]Gerando analise por IA..."):
-            ai_report = ReportGenerator().generate(
-                target,
+        with console.status("[bold cyan]Analisando com IA..."):
+            gen = ReportGenerator()
+            ai_report = gen.generate(
+                username or email,
                 enriched,
-                "username" if username else "email",
+                "username" if username else "email"
             )
 
+    # Output
     formatter = ReportFormatter()
+
     if output_format == "json":
-        output = formatter.to_json(target, enriched, ai_report)
-        output_file = OUTPUT_DIR / f"{target}_report.json"
-        output_file.write_text(output)
-        console.print(f"[green]Relatorio salvo em {output_file}[/green]")
+        output = formatter.to_json(username or email, enriched, ai_report)
         print(output)
-        return
+        output_file = OUTPUT_DIR / f"{username or email}_report.json"
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write(output)
+        console.print(f"[green]Salvo: {output_file}[/green]")
 
-    if output_format == "html":
-        output = formatter.to_html(target, enriched, ai_report)
-        output_file = OUTPUT_DIR / f"{target}_report.html"
-        output_file.write_text(output)
-        console.print(f"[green]Relatorio salvo em {output_file}[/green]")
+    elif output_format == "html":
+        output = formatter.to_html(username or email, enriched, ai_report)
+        output_file = OUTPUT_DIR / f"{username or email}_report.html"
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write(output)
+        console.print(f"[green]Salvo: {output_file}[/green]")
         if open_browser:
-            webbrowser.open(output_file.resolve().as_uri())
-        return
+            import webbrowser
+            webbrowser.open(output_file.as_uri())
 
-    formatter.to_cli(target, enriched, ai_report)
+    else:
+        formatter.to_cli(username or email, enriched, ai_report)
 
 
 @app.command()
-def version() -> None:
-    """Mostra a versao da CLI."""
+def version():
+    """Exibe a versão do ARGUS."""
     console.print("[bold cyan]ARGUS 1.0.0[/bold cyan]")
 
 

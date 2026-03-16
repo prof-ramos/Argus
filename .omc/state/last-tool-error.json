@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"git stash && git merge claude/create-e2e-tests-t4a84 2>&1\",\"description\":\"Stash and merge e2e branch\"}",
+  "error": "Exit code 1\nSaved working directory and index state WIP on main: 344a9e7 feat: add real osint collectors and brand assets\nAuto-merging .gitignore\nCONFLICT (add/add): Merge conflict in .gitignore\nAuto-merging README.md\nCONFLICT (content): Merge conflict in README.md\nAuto-merging ai/prompt_builder.py\nCONFLICT (add/add): Merge conflict in ai/prompt_builder.py\nAuto-merging ai/report_generator.py\nCONFLICT (add/add): Merge conflict in ai/report_generator.py\nAuto-merging argus.py\nCONFLICT (add/add): Me...",
+  "timestamp": "2026-03-16T20:18:28.565Z",
+  "retry_count": 2
+}

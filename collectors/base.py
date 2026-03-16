@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Optional
+from enum import Enum
 
 
 class ResultStatus(Enum):
@@ -20,4 +20,4 @@ class AccountResult:
     metadata: dict = field(default_factory=dict)
 
     def is_valid(self) -> bool:
-        return self.status == ResultStatus.FOUND
+        return self.status == ResultStatus.FOUND and self.http_status == 200
