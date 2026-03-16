@@ -8,6 +8,7 @@ BASE_DIR = Path(__file__).parent.parent
 OUTPUT_DIR = Path(os.getenv("ARGUS_OUTPUT_DIR", "./reports"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+ARGUS_LOG_LEVEL = os.getenv("ARGUS_LOG_LEVEL", "INFO")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", 0.3))

@@ -1,6 +1,8 @@
 import asyncio
-import typer
+import webbrowser
 from typing import Optional
+
+import typer
 from rich.console import Console
 
 from collectors.maigret import MaigreCollector
@@ -57,7 +59,7 @@ def search(
     ai_report = None
     if ai:
         with console.status("[bold cyan]Analisando com IA..."):
-            gen = ReportGenerator()
+            gen = ReportGenerator(api_key=api_key)
             ai_report = gen.generate(
                 username or email,
                 enriched,

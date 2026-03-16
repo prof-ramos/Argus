@@ -9,20 +9,21 @@ logger = logging.getLogger(__name__)
 
 
 class ReportGenerator:
-    def __init__(self):
+    def __init__(self, api_key: Optional[str] = None) -> None:
+        self.api_key = api_key or OPENAI_API_KEY
         self._client = None
         self.model = LLM_MODEL
 
     @property
-    def client(self):
+    def client(self) -> "OpenAI":
         """Lazy-initialize OpenAI client only when first needed."""
         if self._client is None:
             from openai import OpenAI
-            self._client = OpenAI(api_key=OPENAI_API_KEY)
+            self._client = OpenAI(api_key=self.api_key)
         return self._client
 
     def generate(self, username: str, results: List[Dict], search_type: str = "username") -> Optional[AIReport]:
-        if not OPENAI_API_KEY:
+        if not self.api_key:
             raise ValueError("OPENAI_API_KEY not configured")
 
         prompt = PromptBuilder.build(username, results, search_type)
