@@ -1,453 +1,400 @@
-# ARGUS — Documentação de Arquitetura do Sistema
+# ARGUS — Arquitetura do Sistema
 
-> **Data:** 16/03/2026 | **Versão:** 1.0 | **Status:** Production Ready
+> **Data:** 17/03/2026 | **Versão:** 1.0.0 | **Status:** Production Ready
 
 ---
 
 ## 1. Visão Geral de Alto Nível
 
-O ARGUS implementa um **pipeline sequencial em 5 camadas** com separação clara de responsabilidades:
+ARGUS é uma suíte de OSINT CLI que implementa um **pipeline sequencial em 4 camadas** com separação clara de responsabilidades:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  1. INPUT LAYER                                          │
-│     └─ Username | Email | Ambos                          │
+│  1. INPUT LAYER (CLI)                                    │
+│     └─ Typer: --username | --email | --ai | --format    │
 └──────────────────────────────────┬──────────────────────┘
                                    │
 ┌──────────────────────────────────▼──────────────────────┐
 │  2. COLLECTION LAYER (asyncio paralelo)                 │
-│     ├─ Maigret (username)                               │
-│     ├─ Holehe (email)                                   │
-│     ├─ Sherlock (username)                              │
-│     └─ GHunt (email Google)                             │
+│     ├─ MaigretCollector: Username em 500+ plataformas  │
+│     └─ HoleheCollector: Email em serviços registrados   │
 └──────────────────────────────────┬──────────────────────┘
                                    │
 ┌──────────────────────────────────▼──────────────────────┐
-│  3. PROCESSING LAYER (Normalização + Filtragem)         │
-│     ├─ Normalizer: Estrutura unificada                  │
-│     ├─ Filter: Validação HTTP real + Anti-FP           │
-│     └─ Enricher: Metadados de plataforma                │
+│  3. PROCESSING LAYER                                    │
+│     ├─ Normalizer: Deduplicação por (site, url, status) │
+│     ├─ FalsePositiveFilter: Validação HTTP real         │
+│     └─ Enricher: Metadados de categoria/riqueza         │
 └──────────────────────────────────┬──────────────────────┘
                                    │
 ┌──────────────────────────────────▼──────────────────────┐
-│  4. AI ANALYSIS LAYER                                   │
-│     ├─ PromptBuilder: Construção inteligente            │
-│     └─ LLM Client: GPT-4o-mini (ou GPT-4o)             │
-└──────────────────────────────────┬──────────────────────┘
-                                   │
-┌──────────────────────────────────▼──────────────────────┐
-│  5. OUTPUT LAYER                                        │
-│     ├─ CLI (Rich formatting)                            │
+│  4. OUTPUT LAYER                                         │
+│     ├─ CLI (Rich table)                                 │
 │     ├─ JSON (estruturado)                               │
-│     ├─ HTML (visual com template)                       │
-│     └─ PDF (vector-based)                               │
+│     └─ HTML (estilizado)                                │
 └──────────────────────────────────────────────────────────┘
+                                   │
+                          ┌────────▼───────┐
+                          │  AI LAYER      │ (opcional)
+                          │  OpenAI API    │
+                          └────────────────┘
 ```
 
 **Princípios arquiteturais:**
-- ✅ **Modularidade**: Cada camada é independente e testável
-- ✅ **Tipagem**: Todas as interfaces usam `dataclasses` (sem dicts arbitrários)
-- ✅ **Paralelismo**: Collectors rodam em `asyncio` para máximo throughput
-- ✅ **Determinismo**: Saída JSON nativa da OpenAI API (sem parsing frágil)
-- ✅ **Observabilidade**: Logging estruturado em cada ponto crítico
+- ✅ **Modularidade**: Cada camada independente e testável
+- ✅ **Tipagem**: `dataclasses` para DTOs, sem dicts arbitrários
+- ✅ **Paralelismo**: `asyncio.gather()` para coletores simultâneos
+- ✅ **Resiliência**: Timeout em subprocessos, graceful degradation
+- ✅ **Extensibilidade**: Fácil adicionar coletores ou formaters
 
 ---
 
 ## 2. Interações de Componentes
 
+### 2.1 Matriz de Dependências
+
 | Componente | Entrada | Saída | Falha? |
 |---|---|---|---|
-| **Maigret** | `username: str` | `List[AccountResult]` | Skip silenciosamente |
-| **Holehe** | `email: str` | `List[EmailResult]` | Skip silenciosamente |
-| **Sherlock** | `username: str` | `List[AccountResult]` | Skip silenciosamente |
-| **Normalizer** | Heterogêneos | `List[UnifiedResult]` | Raise ValueError |
-| **Filter** | `List[UnifiedResult]` | `List[UnifiedResult]` | Remove itens inválidos |
-| **Enricher** | `List[UnifiedResult]` | `List[EnrichedResult]` | Enriquecer com defaults |
-| **LLM Client** | `str (prompt)` | `dict (JSON)` | Raise APIError |
-| **Formatter** | `dict` | `str (CLI/JSON/HTML)` | Raise FormatterError |
+| **MaigretCollector** | `username: str` | `List[AccountResult]` | Retorna erro, não crash |
+| **HoleheCollector** | `email: str` | `List[AccountResult]` | Retorna erro, não crash |
+| **Normalizer** | `List[List[AccountResult]]` | `List[AccountResult]` | Deduplica por chave |
+| **FalsePositiveFilter** | `List[AccountResult]` | `List[AccountResult]` | Remove inválidos |
+| **Enricher** | `List[AccountResult]` | `List[Dict]` | Add defaults |
+| **ReportGenerator** | `username, results, type` | `AIReport` | `raise ValueError` |
+| **ReportFormatter** | `username, results, ai` | `str (CLI/JSON/HTML)` | Formata |
+
+### 2.2 Diagrama de Sequência
+
+```
+User      CLI       Collector       Normalizer    Filter    Enricher    Formatter
+ │         │             │               │           │           │           │
+ │────search(u)──────>│               │           │           │           │
+ │         │             │               │           │           │           │
+ │         │────collect(u)─────────────>│           │           │           │
+ │         │             │               │           │           │           │
+ │         │             │──subprocess──>|maigret    │           │           │
+ │         │             │<──JSON───────│           │           │           │
+ │         │             │               │           │           │           │
+ │         │<──results─────────────────│           │           │           │
+ │         │             │               │           │           │           │
+ │         │────normalize──────────────────────────>│           │           │
+ │         │             │               │           │           │           │
+ │         │<──flattened───────────────────────────│           │           │
+ │         │             │               │           │           │           │
+ │         │────filter─────────────────────────────────────────>│           │
+ │         │             │               │           │           │           │
+ │         │<──validated────────────────────────────────────────│           │
+ │         │             │               │           │           │           │
+ │         │────enrich──────────────────────────────────────────────────────>│
+ │         │             │               │           │           │           │
+ │         │<──enriched─────────────────────────────────────────────────────│
+ │         │             │               │           │           │           │
+ │         │────format──────────────────────────────────────────────────────>│
+ │         │             │               │           │           │           │
+ │         │<──output────────────────────────────────────────────────────────│
+ │<────────output────────│               │           │           │           │
+```
 
 ---
 
-## 3. Decisões de Design e Justificativa
+## 3. Fluxo de Dados Detalhado
 
-### 3.1 Por que Coleta Paralela com `asyncio`?
-
-**Problema:** Executar Maigret, Holehe, Sherlock sequencialmente = ~120s por entrada.
-
-**Solução:** Usar `asyncio` para paralelismo de I/O:
+### 3.1 Pipeline de Processamento
 
 ```python
-# collectors/__init__.py
-async def collect_all(username: str, email: str) -> dict:
-    """Executar todos os collectors em paralelo"""
+# argus.py: fluxo principal simplificado
+
+# 1. COLETA (paralela)
+async def collect(username, email):
     tasks = []
-    
     if username:
-        tasks.append(maigret.collect(username))
-        tasks.append(sherlock.collect(username))
-    
+        tasks.append(MaigreCollector().collect(username))
     if email:
-        tasks.append(holehe.collect(email))
-        tasks.append(ghunt.collect(email))
-    
-    # Aguardar todas simultaneamente
-    responses = await asyncio.gather(*tasks, return_exceptions=True)
-    return responses
+        tasks.append(HoleheCollector().collect(email))
+    return await asyncio.gather(*tasks)
+
+results = await collect(username, email)
+
+# 2. NORMALIZAÇÃO
+normalized = Normalizer.normalize(results)  # flatten + dedupe
+
+# 3FILTRAGEM
+filtered = await FalsePositiveFilter().filter(normalized)  # HTTP validate
+
+# 4. ENRIQUECIMENTENTO
+enriched = Enricher().enrich(filtered)  # add metadata
+
+# 5. OUTPUT
+formatter.to_cli(username, enriched, ai_report)
 ```
 
-**Resultado:** Tempo reduzido de ~120s para ~35s (75% de ganho).
-
-### 3.2 Por que `gpt-4o-mini` como Padrão?
-
-```
-Comparação de Modelos:
-┌────────────────┬──────────────┬──────────┬──────────┐
-│ Modelo         │ Custo/req    │ Latência │ Precisão │
-├────────────────┼──────────────┼──────────┼──────────┤
-│ gpt-4o-mini    │ US$ 0,0010   │ 2-3s     │ 92%      │
-│ gpt-4-turbo    │ US$ 0,0100   │ 3-4s     │ 98%      │
-│ gpt-4o         │ US$ 0,0030   │ 2-3s     │ 95%      │
-└────────────────┴──────────────┴──────────┴──────────┘
-```
-
-**Decisão:** `gpt-4o-mini` por padrão, com fallback para `gpt-4o` em contextos complexos.
-
-### 3.3 Por que Metadados Externalizados?
-
-**Problema:** Adicionar nova plataforma requer editar código.
-
-**Solução:** Arquivo JSON externo seguindo princípio **Open/Closed**:
-
-```json
-{
-  "platforms": {
-    "github": {
-      "name": "GitHub",
-      "category": "developer",
-      "data_richness": "high",
-      "description": "Repositórios, bio, followers, stars, contribuições"
-    }
-  }
-}
-```
-
-Isso permite **atualizar plataformas sem tocar no código fonte**.
-
----
-
-## 4. Fluxo de Dados: Filtro Anti-Falsos Positivos
-
-**Problema:** Maigret/Sherlock geram muitos falsos positivos.
-
-**Solução em 4 etapas:**
+### 3.2 Estrutura de Dados
 
 ```python
-async def validate_url(url: str, timeout: int = 5) -> bool:
-    """Validar se URL é realmente válida"""
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.head(url, timeout=timeout, allow_redirects=False) as resp:
-                
-                # Etapa 1: Status code deve ser 2xx
-                if resp.status < 200 or resp.status >= 300:
-                    return False
-                
-                # Etapa 2: Verificar redirecionamento
-                if resp.status in [301, 302, 307, 308]:
-                    redirect_to = resp.headers.get('Location', '')
-                    if 'homepage' in redirect_to or redirect_to == url:
-                        return False
-                
-                # Etapa 3: Verificar blocklist de sites conhecidos
-                if any(site in url for site in FALSE_POSITIVE_SITES):
-                    return False
-                
-                # Etapa 4: Content-Length > 1KB (não é página genérica)
-                content_length = int(resp.headers.get('Content-Length', 0))
-                if content_length < 1024:
-                    return False
-                
-                return True
-    except Exception:
-        return False
-```
-
----
-
-## 5. Código-Fonte dos Módulos Principais
-
-### 5.1 Tipos Base (`collectors/base.py`)
-
-```python
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import List, Optional
-from enum import Enum
-
-class CollectorType(Enum):
-    USERNAME = "username"
-    EMAIL = "email"
-    HYBRID = "hybrid"
-
+# collectors/base.py
 @dataclass
 class AccountResult:
-    """Resultado bruto de um collector"""
     site_name: str
-    username_or_email: str
-    url: str
-    status: str  # "found", "not found", "error"
-    status_code: Optional[int] = None
-    collector_name: str = ""
-    error_message: Optional[str] = None
-    extra_data: dict = None
+    url: Optional[str]
+    status: ResultStatus        # FOUND | NOT_FOUND | ERROR | TIMEOUT
+    http_status: Optional[int]
+    error: Optional[str]
+    metadata: dict              # dados brutos do collector
 
-class BaseCollector(ABC):
-    """Classe base para todos os collectors"""
-    
-    def __init__(self, timeout: int = 15, retries: int = 2):
-        self.timeout = timeout
-        self.retries = retries
-    
-    @property
-    @abstractmethod
-    def collector_name(self) -> str:
-        pass
-    
-    @abstractmethod
-    async def collect(self, target: str) -> List[AccountResult]:
-        pass
+# ai/models.py
+@dataclass
+class AIReport:
+    summary: str
+    profile_type: str
+    insights: List[str]
+    risk_flags: List[str]
+    tags: List[str]
+    digital_footprint_score: int
+    confidence: str
+    platforms_found: int
+    high_value_platforms: List[str]
+    categories: List[str]
 ```
 
-### 5.2 Maigret Collector (`collectors/maigret.py`)
+---
+
+## 4. Decisões de Design e Justificativa
+
+### 4.1 Subprocessos para Coletores
+
+**Decisão**: Executar `maigret` e `holehe` como subprocessos via `asyncio.create_subprocess_exec`.
+
+**Justificativa**:
+- Ferramentas maduras já existentes (+500 plataformas verificadas)
+- Evita reimplementação complexa de detecção de cada site
+- Isolamento: timeout em subprocesso não derruba CLI
+- Python async permite paralelismo sem threads
+
+**Trade-off**: Parsing de output não estruturado (Holehe) é frágil
+
+### 4.2 Lazy Initialization do OpenAI Client
+
+**Decisão**: `@property` com inicialização tardia em `ReportGenerator`.
+
+**Justificativa**:
+- CLI usada frequentemente sem `--ai`
+- Economiza tempo de startup (~200ms de import OpenAI)
+- Evita erro de API key desnecessário
 
 ```python
-import asyncio
-import subprocess
-import json
-from .base import BaseCollector, AccountResult, CollectorType
-
-class MaigetCollector(BaseCollector):
-    @property
-    def collector_name(self) -> str:
-        return "maigret"
-    
-    async def collect(self, username: str) -> List[AccountResult]:
-        """Executar Maigret e parsear output"""
-        results = []
-        
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                'maigret',
-                '--json',
-                '--timeout', str(self.timeout),
-                username,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(),
-                timeout=self.timeout + 5
-            )
-            
-            if proc.returncode != 0:
-                return results
-            
-            data = json.loads(stdout.decode())
-            
-            for site, details in data.get('results', {}).items():
-                if details['status']['status'] == 'FOUND':
-                    results.append(AccountResult(
-                        site_name=site,
-                        username_or_email=username,
-                        url=details['url'],
-                        status='found',
-                        status_code=200,
-                        collector_name=self.collector_name,
-                        extra_data=details.get('info', {})
-                    ))
-        
-        except Exception as e:
-            logger.error(f"[{self.collector_name}] Error: {e}")
-        
-        return results
-```
-
-### 5.3 Filter (`processing/filter.py`)
-
-```python
-import aiohttp
-import asyncio
-from typing import List
-from .normalizer import UnifiedResult
-
-class URLValidator:
-    """Validador HTTP com detecção de falsos positivos"""
-    
-    def __init__(self, timeout: int = 5):
-        self.timeout = timeout
-    
-    async def validate(self, url: str) -> bool:
-        """Validar se URL é realmente válida"""
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.head(
-                    url,
-                    timeout=aiohttp.ClientTimeout(total=self.timeout),
-                    allow_redirects=False,
-                    headers={'User-Agent': 'Mozilla/5.0'}
-                ) as resp:
-                    
-                    if resp.status < 200 or resp.status >= 300:
-                        return False
-                    
-                    if resp.status in [301, 302, 307, 308]:
-                        location = resp.headers.get('Location', '')
-                        if any(x in location for x in ['/', 'home', 'index']):
-                            return False
-                    
-                    content_length = int(resp.headers.get('Content-Length', 0))
-                    if content_length < 1024:
-                        return False
-                    
-                    return True
-        
-        except asyncio.TimeoutError:
-            return False
-        except Exception:
-            return False
-    
-    async def filter_results(self, results: List[UnifiedResult]) -> List[UnifiedResult]:
-        """Filtrar resultados inválidos em paralelo"""
-        tasks = [self.validate(r.url) for r in results]
-        validations = await asyncio.gather(*tasks)
-        
-        return [r for r, valid in zip(results, validations) if valid]
-```
-
-### 5.4 PromptBuilder (`ai/prompt_builder.py`)
-
-```python
-from typing import List
-
-class PromptBuilder:
-    """Construir prompt otimizado para LLM"""
-    
-    @staticmethod
-    def build(results: List) -> str:
-        """Construir prompt com resultados agrupados"""
-        
-        high_richness = [r for r in results if r.data_richness == 'high']
-        medium_richness = [r for r in results if r.data_richness == 'medium']
-        low_richness = [r for r in results if r.data_richness == 'low']
-        
-        prompt = "Analise o perfil digital desta pessoa:\n\n"
-        
-        if high_richness:
-            prompt += "PLATAFORMAS PRINCIPAIS:\n"
-            for r in high_richness:
-                prompt += f"- {r.site_name}: {r.description}\n  URL: {r.url}\n"
-            prompt += "\n"
-        
-        if medium_richness:
-            prompt += "PLATAFORMAS SECUNDÁRIAS:\n"
-            for r in medium_richness:
-                prompt += f"- {r.site_name}: {r.description}\n"
-            prompt += "\n"
-        
-        prompt += """Gere um JSON com:
-{
-    "profile_summary": "...",
-    "profile_type": "...",
-    "insights": [...],
-    "risk_flags": [...],
-    "tags": [...],
-    "digital_footprint_score": <0-10>,
-    "confidence": "high|medium|low"
-}"""
-        
-        return prompt
-```
-
-### 5.5 Report Generator (`ai/report_generator.py`)
-
-```python
-import json
-import asyncio
-from openai import OpenAI, RateLimitError
-
-SYSTEM_PROMPT = """Você é um especialista em análise de OSINT.
-Analise o perfil digital com precisão e estrutura.
-Sempre retorne valid JSON."""
-
 class ReportGenerator:
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini"):
-        self.client = OpenAI(api_key=api_key)
-        self.model = model
-    
-    async def generate(self, results: List, prompt: str) -> dict:
-        """Gerar relatório com retry logic"""
-        
-        max_retries = 3
-        retry_count = 0
-        
-        while retry_count < max_retries:
-            try:
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    temperature=0.3,
-                    response_format={"type": "json_object"},
-                    messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": prompt}
-                    ]
-                )
-                
-                return json.loads(response.choices[0].message.content)
-            
-            except RateLimitError:
-                retry_count += 1
-                wait_time = 2 ** retry_count
-                await asyncio.sleep(wait_time)
-            
-            except Exception as e:
-                logger.error(f"Report generation failed: {e}")
-                raise
-        
-        raise Exception("Report generation failed after retries")
+    def __init__(self):
+        self._client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            from openai import OpenAI
+            self._client = OpenAI(api_key=OPENAI_API_KEY)
+        return self._client
+```
+
+### 4.3 Validação HTTP com aiohttp
+
+**Decisão**: `TCPConnector(limit=20)` para validação paralela.
+
+**Justificativa**:
+- I/O bound se beneficia de concorrência
+- Limite previne esgotamento de file descriptors
+- `allow_redirects=True` captura redirecionamentos 404
+
+### 4.4 Metadados Externalizados
+
+**Decisão**: `config/platforms_metadata.json` para categorias.
+
+**Justificativa**:
+- Princípio Open/Closed: adicionar plataforma sem tocar código
+- Tradução/facilidade de edição
+- Pode ser versionado independentemente
+
+**Limitação**: Mais de 500 plataformas = arquivo grande
+
+### 4.5 Dataclasses em Vez de Dicts
+
+**Decisão**: `AccountResult` e `AIReport` como `@dataclass`.
+
+**Justificativa**:
+- Type hints habilitam autocompletion do IDE
+- `__dict__` disponível para serialização JSON
+- Menos boilerplate que classes tradicionais
+- mypy pode validar tipos
+
+---
+
+## 5. Restrições e Limitações
+
+### 5.1 Dependências Externas
+
+| Ferramenta | Versão | Limitação |
+|-----------|--------|-----------|
+| **maigret** | 0.5.0 | Sites com CAPTCHA retornam falso negativo |
+| **holehe** | 1.61 | Output text-only, parsing via regex frágil |
+| **openai** | 2.8+ | Requer API key paga, rate limits de 10-100 RPM |
+
+### 5.2 Limitações do Sistema
+
+| Área | Limitação | Impacto |
+|------|-----------|---------|
+| **Rate Limiting** | Plataformas bloqueiam após ~100 req/hora | Coletas podem ser incompletas |
+| **Timeout** | 15s padrão por collector | Sites lentos retornam timeout |
+| **Falsos Positivos** | Sites genéricos parecem "found" | Filtro HTTP mitiga mas não elimina |
+| **PII** | Dados sensíveis em relatórios | Relatórios devem ser protegidos |
+| **IA** | Max 128k tokens ≈ 50 plataformas | Truncamento para targets muito ativos |
+
+### 5.3 Performance
+
+| Operação | Tempo Típico | Gargalo |
+|----------|-------------|---------|
+| Coleta Maigret | 5-15s | Network latency |
+| Coleta Holehe | 3-10s | DNS checks |
+| Validação HTTP | 0.5-2s (paralelo) | aiohttp pool |
+| Análise IA | 2-5s | OpenAI API |
+| **Total** | **10-30s** | -- |
+
+---
+
+## 6. Estrutura de Arquivos
+
+```
+argus/
+├── argus.py                 # CLI entry point (Typer)
+├── pyproject.toml           # Dependências do projeto
+├── pytest.ini               # Configuração de testes
+├── requirements.txt         # Dependências para install.sh
+├── install.sh               # Script de instalação
+│
+├── collectors/
+│   ├── __init__.py
+│   ├── base.py              # AccountResult, ResultStatus
+│   ├── maigret.py           # MaigreCollector (username)
+│   └── holehe.py            # HoleheCollector (email)
+│
+├── processing/
+│   ├── __init__.py
+│   ├── normalizer.py        # Normalizer.normalize()
+│   ├── filter.py            # FalsePositiveFilter.filter()
+│   └── enricher.py          # Enricher.enrich()
+│
+├── ai/
+│   ├── __init__.py
+│   ├── models.py            # AIReport dataclass
+│   ├── report_generator.py  # ReportGenerator (OpenAI)
+│   └── prompt_builder.py    # PromptBuilder.build()
+│
+├── output/
+│   ├── __init__.py
+│   └── formatter.py         # ReportFormatter (CLI/JSON/HTML)
+│
+├── config/
+│   ├── __init__.py
+│   ├── settings.py          # Configurações centralizadas
+│   └── platforms_metadata.json  # Metadados de plataformas
+│
+├── tests/
+│   ├── conftest.py          # Fixtures pytest
+│   └── e2e/                 # Testes de ponta a ponta
+│       ├── test_search_username.py
+│       ├── test_search_email.py
+│       ├── test_output_formats.py
+│       ├── test_ai_analysis.py
+│       └── test_error_cases.py
+│
+└── reports/                 # Output gerado (criado em runtime)
 ```
 
 ---
 
-## 6. Restrições e Limitações
+## 7. Extensibilidade
 
-| Restrição | Impacto | Mitigação |
-|---|---|---|
-| **Rate Limiting** | IPs bloqueados após 500+ reqs/hora | User-Agent rotation + delays |
-| **Latência de Filtro** | 5-10s adicionais | Cache com TTL de 24h |
-| **Falsos Negativos** | URLs legítimas descartadas | Fine-tuning por plataforma |
-| **Limite de Token GPT** | Max 128k → ~50 plataformas/prompt | Priorizar `data_richness: high` |
-| **Timeout asyncio** | Collector pode travar | Implementar timeout por task |
+### 7.1 Adicionar Novo Coletor
 
-**Recomendações:**
-- 🔒 Usar apenas em investigações autorizadas (LE, corporativo)
-- 📋 Respeitar LGPD e ToS de cada plataforma
-- 🚨 Relação gerada pode expor dados sensíveis de terceiros
+```python
+# collectors/new_tool.py
+from .base import AccountResult, ResultStatus
+
+class NewToolCollector:
+    async def collect(self, target: str) -> List[AccountResult]:
+        # Implementar coleta
+        results = []
+        # ...
+        return results
+
+# argus.py - adicionar no collect()
+if username:
+    tasks.append(NewToolCollector().collect(username))
+```
+
+### 7.2 Adicionar Novo Formato de Output
+
+```python
+# output/formatter.py
+@staticmethod
+def to_xml(username: str, results: List[Dict], ai_report: Optional[AIReport]) -> str:
+    import xml.etree.ElementTree as ET
+    root = ET.Element("report")
+    # ... construir XML
+    return ET.tostring(root, encoding="unicode")
+```
 
 ---
 
-## Resumo Técnico
+## 8. Configuração
+
+Variáveis de ambiente em `.env`:
+
+```bash
+# Obrigatório para IA
+OPENAI_API_KEY=sk-...
+
+# Diretório de output
+ARGUS_OUTPUT_DIR=./reports
+
+# Configurações de LLM
+LLM_MODEL=gpt-4o-mini
+LLM_TEMPERATURE=0.3
+
+# Coletores
+COLLECTOR_TIMEOUT=15
+MAIGRET_TOP_SITES=20
+
+# Validação HTTP
+VALIDATE_URLS=true
+VALIDATION_TIMEOUT=5
+
+# Logging
+ARGUS_LOG_LEVEL=INFO
+```
+
+---
+
+## 9. Segurança e Privacidade
+
+1. **PII**: Relatórios contêm informações pessoais sensíveis
+2. **API Keys**: OpenAI key em `.env` (nunca commitar no git)
+3. **Logs**: Usernames/emails são logados em DEBUG apenas
+4. **Temp Files**: Maigret cria diretórios temporários em `/tmp` e limpa após
+5. **HTTPS**: Todas as requisições usam HTTPS
+
+---
+
+## 10. Resumo Técnico
 
 | Aspecto | Implementação |
 |---|---|
 | **Linguagem** | Python 3.10+ |
-| **Async Runtime** | asyncio (non-blocking I/O) |
+| **Async Runtime** | asyncio (subprocess + aiohttp) |
 | **Tipagem** | dataclasses + type hints |
-| **API** | OpenAI (response_format: json_object) |
-| **Performance** | ~35s end-to-end |
-| **Escalabilidade** | >50 plataformas por prompt |
-| **Disponibilidade** | 99.5% (exceto rate limits OpenAI) |
+| **CLI Framework** | Typer + Rich |
+| **IA API** | OpenAI (json_object mode) |
+| **Performance** | ~10-30s end-to-end |
+| **Testes** | 48 e2e tests (pytest) |
+| **Instalação** | `pip install -e .` ou `./install.sh` |
 
 ---
 
-**Documentação mantida por:** Gabriel Ramos (@ASOF) | **Última atualização:** 16/03/2026
+**Documentação mantida por:** Gabriel Ramos | **Última atualização:** 17/03/2026
