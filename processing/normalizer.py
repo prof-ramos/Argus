@@ -12,13 +12,10 @@ class Normalizer:
 
         seen = set()
         normalized = []
-
-        seen_urls = set()
         for result in flattened:
-            key = (result.site_name, result.url)
-            if key not in seen and result.url and result.url not in seen_urls:
+            key = (result.site_name, result.url or "", result.status.value)
+            if key not in seen:
                 seen.add(key)
-                seen_urls.add(result.url)
                 normalized.append(result)
 
         return normalized

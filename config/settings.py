@@ -14,6 +14,7 @@ LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", 0.3))
 
 COLLECTOR_TIMEOUT = int(os.getenv("COLLECTOR_TIMEOUT", 15))
 COLLECTOR_RETRIES = int(os.getenv("COLLECTOR_RETRIES", 2))
+MAIGRET_TOP_SITES = int(os.getenv("MAIGRET_TOP_SITES", 20))
 
 VALIDATE_URLS = os.getenv("VALIDATE_URLS", "true").lower() == "true"
 VALIDATION_TIMEOUT = int(os.getenv("VALIDATION_TIMEOUT", 5))

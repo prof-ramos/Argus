@@ -4,6 +4,7 @@ E2E tests for ARGUS email search and combined username+email search via CLI.
 import pytest
 from unittest.mock import AsyncMock, patch
 from argus import app
+from collectors.holehe import HoleheCollector
 
 
 class TestSearchEmail:
@@ -56,6 +57,25 @@ class TestSearchEmail:
 
         assert result.exit_code == 0
         assert "Spotify" in result.output
+
+    def test_holehe_modern_output_parser(
+        self,
+    ):
+        """Current holehe '[+]' output format is parsed into found results."""
+        output = """
+[+] spotify.com
+[+] wordpress.com
+[+] en.gravatar.com / FullName Gabriel Ramos / https://gravatar.com/example
+
+[+] Email used, [-] Email not used, [x] Rate limit
+"""
+        results = HoleheCollector()._parse_results(output, "test@example.com")
+        names = [result.site_name for result in results]
+
+        assert "spotify.com" in names
+        assert "wordpress.com" in names
+        assert "en.gravatar.com" in names
+        assert not any("Email used" in name for name in names)
 
 
 class TestSearchCombined:

@@ -1,15 +1,18 @@
-import json
 import asyncio
-import tempfile
+import json
 import os
+import shutil
+import tempfile
+from pathlib import Path
 from typing import List
 from .base import AccountResult, ResultStatus
-from config.settings import COLLECTOR_TIMEOUT
+from config.settings import COLLECTOR_TIMEOUT, MAIGRET_TOP_SITES
 
 
 class MaigreCollector:
     def __init__(self):
         self.name = "Maigret"
+        self.command = "maigret"
 
     async def collect(self, username: str) -> List[AccountResult]:
         try:
@@ -38,44 +41,73 @@ class MaigreCollector:
             )]
 
     async def _run_maigret(self, username: str) -> dict:
-        fd, output_file = tempfile.mkstemp(suffix=".json", prefix="maigret_")
-        os.close(fd)
+        executable = self._resolve_executable()
+        output_dir = Path(tempfile.mkdtemp(prefix=f"maigret_{username}_"))
 
         try:
             proc = await asyncio.create_subprocess_exec(
-                "maigret", username, "--json", "--output", output_file,
+                executable,
+                username,
+                "-J",
+                "simple",
+                "-fo",
+                str(output_dir),
+                "--top-sites",
+                str(MAIGRET_TOP_SITES),
+                "--no-progressbar",
+                "--no-color",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
-            await proc.communicate()
+            stdout, stderr = await proc.communicate()
 
-            loop = asyncio.get_event_loop()
-            try:
-                content = await loop.run_in_executor(
-                    None, lambda: open(output_file).read()
-                )
-                return json.loads(content)
-            except (OSError, json.JSONDecodeError):
-                return {"results": {}}
+            if proc.returncode != 0:
+                error_msg = stderr.decode("utf-8", errors="ignore").strip()
+                if not error_msg:
+                    error_msg = stdout.decode("utf-8", errors="ignore").strip()
+                raise RuntimeError(error_msg or f"{self.command} falhou com exit code {proc.returncode}")
+
+            report_files = sorted(output_dir.glob("*.json"))
+            if not report_files:
+                raise RuntimeError(f"{self.command} nao gerou arquivo JSON de saida")
+
+            raw = report_files[0].read_text()
+            if not raw.strip():
+                return {}
+
+            return json.loads(raw)
         finally:
-            try:
-                os.unlink(output_file)
-            except OSError:
-                pass
+            for file in output_dir.glob("*"):
+                file.unlink(missing_ok=True)
+            output_dir.rmdir()
 
     def _parse_results(self, maigret_output: dict) -> List[AccountResult]:
         results = []
 
-        for username_data in maigret_output.get("results", {}).values():
-            for site_name, site_data in username_data.items():
-                if isinstance(site_data, dict):
-                    status = ResultStatus.FOUND if site_data.get("found") else ResultStatus.NOT_FOUND
-                    results.append(AccountResult(
-                        site_name=site_name,
-                        url=site_data.get("url"),
-                        status=status,
-                        http_status=site_data.get("status_code"),
-                        metadata=site_data
-                    ))
+        for site_name, site_data in maigret_output.items():
+            if not isinstance(site_data, dict):
+                continue
+            status_block = site_data.get("status", {})
+            claimed = isinstance(status_block, dict) and status_block.get("status") == "Claimed"
+            results.append(AccountResult(
+                site_name=site_name,
+                url=site_data.get("url_user") or (status_block.get("url") if isinstance(status_block, dict) else None),
+                status=ResultStatus.FOUND if claimed else ResultStatus.NOT_FOUND,
+                http_status=site_data.get("http_status"),
+                metadata=site_data
+            ))
 
         return results
+
+    def _resolve_executable(self) -> str:
+        executable = shutil.which(self.command)
+        if executable:
+            return executable
+
+        venv = os.environ.get("VIRTUAL_ENV")
+        if venv:
+            candidate = Path(venv) / "bin" / self.command
+            if candidate.exists():
+                return str(candidate)
+
+        raise FileNotFoundError(f"{self.command} nao instalado no ambiente do projeto")

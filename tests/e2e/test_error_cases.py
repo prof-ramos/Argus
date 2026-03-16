@@ -149,10 +149,10 @@ class TestFilterBehavior:
 
         assert result.exit_code == 0
 
-    def test_results_without_url_excluded_by_normalizer(
+    def test_results_without_url_are_preserved(
         self, runner, mock_filter_passthrough, tmp_output_dir
     ):
-        """Normalizer excludes results that have no URL."""
+        """Normalizer preserves found results even when they have no URL."""
         no_url_result = [AccountResult(
             site_name="NoURL",
             url=None,
@@ -168,5 +168,4 @@ class TestFilterBehavior:
             result = runner.invoke(app, ["search", "--username", "testuser"])
 
         assert result.exit_code == 0
-        # NoURL platform should not appear (filtered by Normalizer)
-        assert "NoURL" not in result.output
+        assert "NoURL" in result.output

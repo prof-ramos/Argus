@@ -6,6 +6,7 @@ External dependencies (maigret subprocess, HTTP validation) are mocked.
 """
 import pytest
 from argus import app
+from collectors.maigret import MaigreCollector
 
 
 # ---------------------------------------------------------------------------
@@ -79,6 +80,35 @@ class TestSearchUsername:
             result = runner.invoke(app, ["search", "--username", "nobody"])
 
         assert result.exit_code == 0
+
+    def test_maigret_simple_json_parser(
+        self,
+    ):
+        """Current maigret simple JSON output is parsed into found results."""
+        payload = {
+            "GitHub": {
+                "url_user": "https://github.com/testuser",
+                "http_status": 200,
+                "status": {
+                    "status": "Claimed",
+                    "url": "https://github.com/testuser",
+                },
+            },
+            "Reddit": {
+                "url_user": "https://reddit.com/u/testuser",
+                "http_status": 200,
+                "status": {
+                    "status": "Claimed",
+                    "url": "https://reddit.com/u/testuser",
+                },
+            },
+        }
+
+        results = MaigreCollector()._parse_results(payload)
+        names = [result.site_name for result in results if result.status.value == "found"]
+
+        assert "GitHub" in names
+        assert "Reddit" in names
 
 
 class TestVersionCommand:

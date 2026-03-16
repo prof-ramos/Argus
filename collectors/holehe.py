@@ -1,5 +1,8 @@
 import asyncio
+import os
 import re
+import shutil
+from pathlib import Path
 from typing import List
 from .base import AccountResult, ResultStatus
 from config.settings import COLLECTOR_TIMEOUT
@@ -10,6 +13,7 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 class HoleheCollector:
     def __init__(self):
         self.name = "Holehe"
+        self.command = "holehe"
 
     async def collect(self, email: str) -> List[AccountResult]:
         if not _EMAIL_RE.match(email):
@@ -45,20 +49,37 @@ class HoleheCollector:
             )]
 
     async def _run_holehe(self, email: str) -> str:
+        executable = self._resolve_executable()
         proc = await asyncio.create_subprocess_exec(
-            "holehe", email, "--only-used", "--no-color",
+            executable, email, "--only-used", "--no-color",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        stdout, _ = await proc.communicate()
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            error_msg = stderr.decode("utf-8", errors="ignore").strip()
+            if not error_msg:
+                error_msg = stdout.decode("utf-8", errors="ignore").strip()
+            raise RuntimeError(error_msg or f"{self.command} falhou com exit code {proc.returncode}")
         return stdout.decode('utf-8', errors='ignore')
 
     def _parse_results(self, output: str, email: str) -> List[AccountResult]:
         results = []
-        pattern = r"(.+?)\s*:\s*(found|not found)"
-        matches = re.findall(pattern, output, re.IGNORECASE)
+        modern_matches = re.findall(r"^\[\+\]\s+(.+)$", output, re.MULTILINE)
+        if modern_matches:
+            for site_name in modern_matches:
+                cleaned_name = site_name.split(" / ", 1)[0].strip()
+                if "Email used" in cleaned_name:
+                    continue
+                results.append(AccountResult(
+                    site_name=cleaned_name,
+                    status=ResultStatus.FOUND,
+                    http_status=200
+                ))
+            return results
 
-        for site_name, status in matches:
+        legacy_matches = re.findall(r"(.+?)\s*:\s*(found|not found)", output, re.IGNORECASE)
+        for site_name, status in legacy_matches:
             results.append(AccountResult(
                 site_name=site_name.strip(),
                 status=ResultStatus.FOUND if status.lower() == "found" else ResultStatus.NOT_FOUND,
@@ -66,3 +87,16 @@ class HoleheCollector:
             ))
 
         return results
+
+    def _resolve_executable(self) -> str:
+        executable = shutil.which(self.command)
+        if executable:
+            return executable
+
+        venv = os.environ.get("VIRTUAL_ENV")
+        if venv:
+            candidate = Path(venv) / "bin" / self.command
+            if candidate.exists():
+                return str(candidate)
+
+        raise FileNotFoundError(f"{self.command} nao instalado no ambiente do projeto")
