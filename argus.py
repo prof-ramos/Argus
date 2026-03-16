@@ -1,5 +1,4 @@
 import asyncio
-import os
 import webbrowser
 from typing import Optional
 
@@ -74,8 +73,6 @@ def search(
     ai_report = None
     if ai:
         with console.status("[bold cyan]Gerando analise por IA..."):
-            if api_key:
-                os.environ["OPENAI_API_KEY"] = api_key
             ai_report = ReportGenerator(api_key=api_key).generate(
                 target,
                 enriched,

@@ -11,7 +11,7 @@ from config.settings import LLM_MODEL, LLM_TEMPERATURE, OPENAI_API_KEY
 class ReportGenerator:
     def __init__(self, api_key: Optional[str] = None) -> None:
         self.api_key = api_key or OPENAI_API_KEY
-        self.client = OpenAI(api_key=self.api_key)
+        self.client: Optional[OpenAI] = None
         self.model = LLM_MODEL
 
     def generate(
@@ -22,6 +22,8 @@ class ReportGenerator:
     ) -> Optional[AIReport]:
         if not self.api_key:
             raise ValueError("OPENAI_API_KEY nao configurada")
+        if self.client is None:
+            self.client = OpenAI(api_key=self.api_key)
 
         prompt = PromptBuilder.build(username, results, search_type)
 
