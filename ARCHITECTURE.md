@@ -8,36 +8,52 @@
 
 ARGUS é uma suíte de OSINT CLI que implementa um **pipeline sequencial em 4 camadas** com separação clara de responsabilidades:
 
-```
-┌──────────────────────────────────────────────────────────┐
-│  1. INPUT LAYER (CLI)                                    │
-│     └─ Typer: --username | --email | --ai | --format    │
-└──────────────────────────────────┬──────────────────────┘
-                                   │
-┌──────────────────────────────────▼──────────────────────┐
-│  2. COLLECTION LAYER (asyncio paralelo)                 │
-│     ├─ MaigretCollector: Username em 500+ plataformas  │
-│     └─ HoleheCollector: Email em serviços registrados   │
-└──────────────────────────────────┬──────────────────────┘
-                                   │
-┌──────────────────────────────────▼──────────────────────┐
-│  3. PROCESSING LAYER                                    │
-│     ├─ Normalizer: Deduplicação por (site, url, status) │
-│     ├─ FalsePositiveFilter: Validação HTTP real         │
-│     └─ Enricher: Metadados de categoria/riqueza         │
-└──────────────────────────────────┬──────────────────────┘
-                                   │
-┌──────────────────────────────────▼──────────────────────┐
-│  4. OUTPUT LAYER                                         │
-│     ├─ CLI (Rich table)                                 │
-│     ├─ JSON (estruturado)                               │
-│     └─ HTML (estilizado)                                │
-└──────────────────────────────────────────────────────────┘
-                                   │
-                          ┌────────▼───────┐
-                          │  AI LAYER      │ (opcional)
-                          │  OpenAI API    │
-                          └────────────────┘
+```mermaid
+graph TD
+    subgraph INPUT["1. INPUT LAYER (CLI)"]
+        CLI[Typer CLI]
+        CLI -->|--username / --email| NEXT
+    end
+
+    subgraph COLLECTION["2. COLLECTION LAYER (asyncio)"]
+        MAIGRET["MaigretCollector<br/>Username 500+ plataformas"]
+        HOLEHE["HoleheCollector<br/>Email serviços"]
+    end
+
+    subgraph PROCESSING["3. PROCESSING LAYER"]
+        NORMALIZER["Normalizer<br/>Deduplicação"]
+        FILTER["FalsePositiveFilter<br/>Validação HTTP"]
+        ENRICHER["Enricher<br/>Metadados"]
+    end
+
+    subgraph OUTPUT["4. OUTPUT LAYER"]
+        CLI_OUT["CLI (Rich table)"]
+        JSON_OUT["JSON"]
+        HTML_OUT["HTML"]
+    end
+
+    subgraph AI["AI LAYER (opcional)"]
+        OPENAI["OpenAI API"]
+    end
+
+    NEXT --> MAIGRET
+    NEXT --> HOLEHE
+    MAIGRET --> NORMALIZER
+    HOLEHE --> NORMALIZER
+    NORMALIZER --> FILTER
+    FILTER --> ENRICHER
+    ENRICHER --> CLI_OUT
+    ENRICHER --> JSON_OUT
+    ENRICHER --> HTML_OUT
+    ENRICHER -.->|opcional| OPENAI
+
+    style CLI fill:#e1f5ff
+    style MAIGRET fill:#fff4e6
+    style HOLEHE fill:#fff4e6
+    style NORMALIZER fill:#f3e5f5
+    style FILTER fill:#e8f5e9
+    style ENRICHER fill:#fff3e0
+    style OPENAI fill:#fce4ec
 ```
 
 **Princípios arquiteturais:**
@@ -65,34 +81,34 @@ ARGUS é uma suíte de OSINT CLI que implementa um **pipeline sequencial em 4 ca
 
 ### 2.2 Diagrama de Sequência
 
-```
-User      CLI       Collector       Normalizer    Filter    Enricher    Formatter
- │         │             │               │           │           │           │
- │────search(u)──────>│               │           │           │           │
- │         │             │               │           │           │           │
- │         │────collect(u)─────────────>│           │           │           │
- │         │             │               │           │           │           │
- │         │             │──subprocess──>|maigret    │           │           │
- │         │             │<──JSON───────│           │           │           │
- │         │             │               │           │           │           │
- │         │<──results─────────────────│           │           │           │
- │         │             │               │           │           │           │
- │         │────normalize──────────────────────────>│           │           │
- │         │             │               │           │           │           │
- │         │<──flattened───────────────────────────│           │           │
- │         │             │               │           │           │           │
- │         │────filter─────────────────────────────────────────>│           │
- │         │             │               │           │           │           │
- │         │<──validated────────────────────────────────────────│           │
- │         │             │               │           │           │           │
- │         │────enrich──────────────────────────────────────────────────────>│
- │         │             │               │           │           │           │
- │         │<──enriched─────────────────────────────────────────────────────│
- │         │             │               │           │           │           │
- │         │────format──────────────────────────────────────────────────────>│
- │         │             │               │           │           │           │
- │         │<──output────────────────────────────────────────────────────────│
- │<────────output────────│               │           │           │           │
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI
+    participant Collector
+    participant Normalizer
+    participant Filter
+    participant Enricher
+    participant Formatter
+
+    User->>CLI: search(username)
+    CLI->>Collector: collect(username)
+    Collector->>Collector: subprocess maigret
+    Collector-->>CLI: results (JSON)
+
+    CLI->>Normalizer: normalize(results)
+    Normalizer-->>CLI: flattened (deduped)
+
+    CLI->>Filter: filter(flattened)
+    Filter->>Filter: aiohttp HTTP validation
+    Filter-->>CLI: validated
+
+    CLI->>Enricher: enrich(validated)
+    Enricher-->>CLI: enriched (with metadata)
+
+    CLI->>Formatter: format(enriched)
+    Formatter-->>CLI: output (CLI/JSON/HTML)
+    CLI-->>User: display output
 ```
 
 ---

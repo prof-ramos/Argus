@@ -71,26 +71,42 @@ argus version
 
 ## Estrutura do Projeto
 
-```
-argus/
-├── argus.py                  # CLI principal (Typer)
-├── config/
-│   ├── settings.py           # variáveis de ambiente
-│   └── platforms_metadata.json
-├── collectors/
-│   ├── maigret.py            # busca por username
-│   └── holehe.py             # busca por email
-├── processing/
-│   ├── normalizer.py         # deduplicação
-│   ├── filter.py             # validação HTTP
-│   └── enricher.py           # metadados de plataformas
-├── ai/
-│   ├── prompt_builder.py
-│   └── report_generator.py   # integração OpenAI
-├── output/
-│   └── formatter.py          # CLI / JSON / HTML
-└── tests/
-    └── e2e/                  # 46 testes E2E
+```mermaid
+graph TD
+    ROOT["argus/"]
+
+    ROOT --> ARGUS["argus.py<br/>CLI principal (Typer)"]
+    ROOT --> CONFIG["config/"]
+    ROOT --> COLLECTORS["collectors/"]
+    ROOT --> PROCESSING["processing/"]
+    ROOT --> AI["ai/"]
+    ROOT --> OUTPUT["output/"]
+    ROOT --> TESTS["tests/"]
+
+    CONFIG --> SETTINGS["settings.py<br/>variáveis de ambiente"]
+    CONFIG --> METADATA["platforms_metadata.json"]
+
+    COLLECTORS --> MAIGRET["maigret.py<br/>busca por username"]
+    COLLECTORS --> HOLEHE["holehe.py<br/>busca por email"]
+
+    PROCESSING --> NORMALIZER["normalizer.py<br/>deduplicação"]
+    PROCESSING --> FILTER["filter.py<br/>validação HTTP"]
+    PROCESSING --> ENRICHER["enricher.py<br/>metadados"]
+
+    AI --> PROMPT["prompt_builder.py"]
+    AI --> GEN["report_generator.py<br/>integração OpenAI"]
+
+    OUTPUT --> FORMATTER["formatter.py<br/>CLI / JSON / HTML"]
+
+    TESTS --> E2E["e2e/<br/>48 testes E2E"]
+
+    style ROOT fill:#1565c0,color:#fff
+    style CONFIG fill:#42a5f5,color:#fff
+    style COLLECTORS fill:#ff9800,color:#fff
+    style PROCESSING fill:#4caf50,color:#fff
+    style AI fill:#9c27b0,color:#fff
+    style OUTPUT fill:#00bcd4,color:#fff
+    style TESTS fill:#ff5722,color:#fff
 ```
 
 ## Testes
@@ -101,20 +117,23 @@ pytest tests/e2e/ -v
 
 ## Pipeline
 
-```
-Input (username / email)
-    ↓
-Coleta paralela (Maigret + Holehe)
-    ↓
-Normalização + Deduplicação
-    ↓
-Filtro anti-falso-positivo (HTTP)
-    ↓
-Enriquecimento (metadados)
-    ↓
-Análise IA (opcional)
-    ↓
-Output (CLI / JSON / HTML)
+```mermaid
+graph LR
+    A[Input<br/>username / email] --> B[Coleta Paralela<br/>Maigret + Holehe]
+    B --> C[Normalização<br/>+ Deduplicação]
+    C --> D[Filtro Anti-FP<br/>Validação HTTP]
+    D --> E[Enriquecimento<br/>Metadados]
+    E --> F[Análise IA<br/>opcional]
+    E --> G[Output<br/>CLI / JSON / HTML]
+    F --> G
+
+    style A fill:#e3f2fd
+    style B fill:#fff3e0
+    style C fill:#f3e5f5
+    style D fill:#e8f5e9
+    style E fill:#fff3e0
+    style F fill:#fce4ec
+    style G fill:#e1f5ff
 ```
 
 ---
