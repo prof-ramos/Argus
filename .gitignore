@@ -1,0 +1,7 @@
+.DS_Store
+.omx/
+__pycache__/
+*.pyc
+.venv/
+argus_osint.egg-info/
+reports/

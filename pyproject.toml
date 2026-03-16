@@ -1,0 +1,29 @@
+[project]
+name = "argus-osint"
+version = "1.0.0"
+description = "OSINT suite com coleta paralela, validacao HTTP e analise opcional por IA"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "aiohttp>=3.12.0",
+  "holehe==1.61",
+  "maigret==0.5.0",
+  "openai>=2.8.1",
+  "python-dotenv>=1.1.0",
+  "rich>=14.0.0",
+  "typer>=0.16.0",
+]
+
+[project.scripts]
+argus = "argus:app"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["argus"]
+packages = ["ai", "collectors", "config", "output", "processing"]
+
+[tool.setuptools.package-data]
+config = ["platforms_metadata.json"]

@@ -1,0 +1,64 @@
+{
+  "platforms": {
+    "github": {
+      "name": "GitHub",
+      "category": "developer",
+      "data_richness": "high",
+      "description": "Repositorios, bio, seguidores e contribuicoes"
+    },
+    "twitter": {
+      "name": "Twitter/X",
+      "category": "social",
+      "data_richness": "high",
+      "description": "Tweets publicos e rede social"
+    },
+    "reddit": {
+      "name": "Reddit",
+      "category": "social",
+      "data_richness": "high",
+      "description": "Posts, comentarios e historico"
+    },
+    "linkedin": {
+      "name": "LinkedIn",
+      "category": "professional",
+      "data_richness": "high",
+      "description": "Experiencia profissional e educacao"
+    },
+    "twitch": {
+      "name": "Twitch",
+      "category": "streaming",
+      "data_richness": "high",
+      "description": "Canais, seguidores e lives"
+    },
+    "youtube": {
+      "name": "YouTube",
+      "category": "streaming",
+      "data_richness": "high",
+      "description": "Canal, videos e inscritos"
+    },
+    "duolingo": {
+      "name": "Duolingo",
+      "category": "education",
+      "data_richness": "low",
+      "description": "Idiomas estudados e sequencia"
+    },
+    "chesscom": {
+      "name": "Chess.com",
+      "category": "gaming",
+      "data_richness": "medium",
+      "description": "Rating e estatisticas"
+    },
+    "spotify": {
+      "name": "Spotify",
+      "category": "entertainment",
+      "data_richness": "medium",
+      "description": "Preferencias musicais"
+    },
+    "wordpress": {
+      "name": "WordPress",
+      "category": "blogging",
+      "data_richness": "medium",
+      "description": "Blog e posts publicos"
+    }
+  }
+}
