@@ -1,0 +1,150 @@
+{
+  "target": "gfcramos",
+  "platforms_found": 13,
+  "platforms": [
+    {
+      "site_name": "YouTube User",
+      "url": "https://www.youtube.com/@gfcramos",
+      "status": "found",
+      "http_status": 200,
+      "metadata": {
+        "category": "streaming",
+        "data_richness": "high",
+        "description": "Canais, vídeos, inscritos"
+      }
+    },
+    {
+      "site_name": "YouTube",
+      "url": "https://www.youtube.com/@gfcramos",
+      "status": "found",
+      "http_status": 200,
+      "metadata": {
+        "category": "streaming",
+        "data_richness": "high",
+        "description": "Canais, vídeos, inscritos"
+      }
+    },
+    {
+      "site_name": "Chess",
+      "url": "https://www.chess.com/member/gfcramos",
+      "status": "found",
+      "http_status": 200,
+      "metadata": {
+        "category": "gaming",
+        "data_richness": "medium",
+        "description": "Rating, histórico, estatísticas"
+      }
+    },
+    {
+      "site_name": "TikTok",
+      "url": "https://www.tiktok.com/@gfcramos",
+      "status": "found",
+      "http_status": 200,
+      "metadata": {
+        "category": "social",
+        "data_richness": "high",
+        "description": "Vídeos curtos, seguidores, tendências"
+      }
+    },
+    {
+      "site_name": "WordPress",
+      "url": "https://gfcramos.wordpress.com/",
+      "status": "found",
+      "http_status": 200,
+      "metadata": {
+        "category": "blogging",
+        "data_richness": "medium",
+        "description": "Blog, posts públicos"
+      }
+    },
+    {
+      "site_name": "opensea.io",
+      "url": "https://opensea.io/accounts/gfcramos",
+      "status": "found",
+      "http_status": 200,
+      "metadata": {
+        "category": "unknown",
+        "data_richness": "low",
+        "description": ""
+      }
+    },
+    {
+      "site_name": "Roblox",
+      "url": "https://www.roblox.com/user.aspx?username=gfcramos",
+      "status": "found",
+      "http_status": 200,
+      "metadata": {
+        "category": "gaming",
+        "data_richness": "medium",
+        "description": "Jogos online, avatar, amigos, criações"
+      }
+    },
+    {
+      "site_name": "Duolingo",
+      "url": "https://www.duolingo.com/profile/gfcramos",
+      "status": "found",
+      "http_status": 200,
+      "metadata": {
+        "category": "education",
+        "data_richness": "low",
+        "description": "Idiomas estudados, streak"
+      }
+    },
+    {
+      "site_name": "Freelancer.com",
+      "url": "https://www.freelancer.com/api/users/0.1/users?usernames%5B%5D=gfcramos&compact=true",
+      "status": "found",
+      "http_status": 200,
+      "metadata": {
+        "category": "professional",
+        "data_richness": "medium",
+        "description": "Projetos freelance, avaliações, portfólio"
+      }
+    },
+    {
+      "site_name": "Kaggle",
+      "url": "https://www.kaggle.com/gfcramos",
+      "status": "found",
+      "http_status": 200,
+      "metadata": {
+        "category": "developer",
+        "data_richness": "high",
+        "description": "Competições de ML, notebooks, datasets"
+      }
+    },
+    {
+      "site_name": "Picsart",
+      "url": "https://picsart.com/u/gfcramos",
+      "status": "found",
+      "http_status": 200,
+      "metadata": {
+        "category": "creative",
+        "data_richness": "medium",
+        "description": "Edição de fotos, arte digital, comunidade criativa"
+      }
+    },
+    {
+      "site_name": "hashnode",
+      "url": "https://hashnode.com/@gfcramos",
+      "status": "found",
+      "http_status": 200,
+      "metadata": {
+        "category": "developer",
+        "data_richness": "medium",
+        "description": "Blog técnico, artigos de programação"
+      }
+    },
+    {
+      "site_name": "mercadolivre",
+      "url": "https://www.mercadolivre.com.br/perfil/gfcramos",
+      "status": "found",
+      "http_status": 200,
+      "metadata": {
+        "category": "ecommerce",
+        "data_richness": "medium",
+        "description": "Vendas, avaliações, reputação de vendedor"
+      }
+    }
+  ],
+  "ai_analysis": null
+}

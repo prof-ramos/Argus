@@ -36,6 +36,12 @@
       "data_richness": "high",
       "description": "Canais, vídeos, inscritos"
     },
+    "youtube-user": {
+      "name": "YouTube",
+      "category": "streaming",
+      "data_richness": "high",
+      "description": "Canais, vídeos, inscritos"
+    },
     "duolingo": {
       "name": "Duolingo",
       "category": "education",
@@ -43,6 +49,12 @@
       "description": "Idiomas estudados, streak"
     },
     "chesscom": {
+      "name": "Chess.com",
+      "category": "gaming",
+      "data_richness": "medium",
+      "description": "Rating, histórico, estatísticas"
+    },
+    "chess": {
       "name": "Chess.com",
       "category": "gaming",
       "data_richness": "medium",
@@ -59,6 +71,96 @@
       "category": "blogging",
       "data_richness": "medium",
       "description": "Blog, posts públicos"
+    },
+    "tiktok": {
+      "name": "TikTok",
+      "category": "social",
+      "data_richness": "high",
+      "description": "Vídeos curtos, seguidores, tendências"
+    },
+    "instagram": {
+      "name": "Instagram",
+      "category": "social",
+      "data_richness": "high",
+      "description": "Fotos, stories, reels, seguidores"
+    },
+    "kaggle": {
+      "name": "Kaggle",
+      "category": "developer",
+      "data_richness": "high",
+      "description": "Competições de ML, notebooks, datasets"
+    },
+    "hashnode": {
+      "name": "Hashnode",
+      "category": "developer",
+      "data_richness": "medium",
+      "description": "Blog técnico, artigos de programação"
+    },
+    "freelancercom": {
+      "name": "Freelancer.com",
+      "category": "professional",
+      "data_richness": "medium",
+      "description": "Projetos freelance, avaliações, portfólio"
+    },
+    "picsart": {
+      "name": "Picsart",
+      "category": "creative",
+      "data_richness": "medium",
+      "description": "Edição de fotos, arte digital, comunidade criativa"
+    },
+    "roblox": {
+      "name": "Roblox",
+      "category": "gaming",
+      "data_richness": "medium",
+      "description": "Jogos online, avatar, amigos, criações"
+    },
+    "opensea-io": {
+      "name": "OpenSea",
+      "category": "crypto",
+      "data_richness": "medium",
+      "description": "NFTs, coleções, histórico de transações"
+    },
+    "mercadolivre": {
+      "name": "MercadoLivre",
+      "category": "ecommerce",
+      "data_richness": "medium",
+      "description": "Vendas, avaliações, reputação de vendedor"
+    },
+    "pinterest": {
+      "name": "Pinterest",
+      "category": "creative",
+      "data_richness": "medium",
+      "description": "Boards, pins, interesses visuais"
+    },
+    "medium": {
+      "name": "Medium",
+      "category": "blogging",
+      "data_richness": "medium",
+      "description": "Artigos, publicações, seguidores"
+    },
+    "devto": {
+      "name": "Dev.to",
+      "category": "developer",
+      "data_richness": "medium",
+      "description": "Artigos técnicos, comunidade de devs"
+    },
+    "stackoverflow": {
+      "name": "Stack Overflow",
+      "category": "developer",
+      "data_richness": "high",
+      "description": "Reputação, respostas, badges, especialidades"
+    },
+    "npmjs": {
+      "name": "npm",
+      "category": "developer",
+      "data_richness": "medium",
+      "description": "Pacotes publicados, downloads"
+    },
+    "pypi": {
+      "name": "PyPI",
+      "category": "developer",
+      "data_richness": "medium",
+      "description": "Pacotes Python publicados"
     }
   }
 }
