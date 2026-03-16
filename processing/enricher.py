@@ -12,16 +12,20 @@ class Enricher:
         metadata_path = BASE_DIR / "config" / "platforms_metadata.json"
         try:
             with open(metadata_path, encoding="utf-8") as f:
-                self.platform_data = json.load(f)["platforms"]
+                raw = json.load(f)
+                self.platform_data = raw["platforms"]
+                self.aliases: Dict[str, str] = raw.get("aliases", {})
         except (OSError, json.JSONDecodeError, KeyError) as e:
             logger.warning("Could not load platforms_metadata.json: %s. Using empty metadata.", e)
             self.platform_data = {}
+            self.aliases = {}
 
     def enrich(self, results: List[AccountResult]) -> List[Dict]:
         enriched = []
 
         for result in results:
             site_key = result.site_name.lower().replace(" ", "-").replace(".", "")
+            site_key = self.aliases.get(site_key, site_key)
             platform_meta = self.platform_data.get(site_key, {})
 
             enriched.append({

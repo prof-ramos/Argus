@@ -36,12 +36,6 @@
       "data_richness": "high",
       "description": "Canais, vídeos, inscritos"
     },
-    "youtube-user": {
-      "name": "YouTube",
-      "category": "streaming",
-      "data_richness": "high",
-      "description": "Canais, vídeos, inscritos"
-    },
     "duolingo": {
       "name": "Duolingo",
       "category": "education",
@@ -49,12 +43,6 @@
       "description": "Idiomas estudados, streak"
     },
     "chesscom": {
-      "name": "Chess.com",
-      "category": "gaming",
-      "data_richness": "medium",
-      "description": "Rating, histórico, estatísticas"
-    },
-    "chess": {
       "name": "Chess.com",
       "category": "gaming",
       "data_richness": "medium",
@@ -162,5 +150,9 @@
       "data_richness": "medium",
       "description": "Pacotes Python publicados"
     }
+  },
+  "aliases": {
+    "youtube-user": "youtube",
+    "chess": "chesscom"
   }
 }

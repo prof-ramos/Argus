@@ -5,6 +5,10 @@ echo "=== ARGUS — Instalação ==="
 
 # Verifica Python 3.10+
 PYTHON=$(command -v python3 || command -v python)
+if [ -z "$PYTHON" ]; then
+    echo "Erro: Python não encontrado. Instale Python 3.10+."
+    exit 1
+fi
 PY_MAJOR=$($PYTHON -c "import sys; print(sys.version_info.major)")
 PY_MINOR=$($PYTHON -c "import sys; print(sys.version_info.minor)")
 PY_VERSION="$PY_MAJOR.$PY_MINOR"
@@ -15,41 +19,38 @@ if [ "$PY_MAJOR" -lt 3 ] || { [ "$PY_MAJOR" -eq 3 ] && [ "$PY_MINOR" -lt 10 ]; }
 fi
 echo "Python $PY_VERSION OK"
 
-# Instala o pacote principal (sem maigret/holehe que têm deps problemáticas)
+# Instala o pacote principal
 echo ""
 echo "Instalando dependências principais..."
-pip install \
-    requests aiohttp httpx click rich typer \
-    openai pydantic python-dotenv tqdm colorama \
-    --quiet
+$PYTHON -m pip install -r requirements.txt --quiet
 
 # Instala dependências de runtime do maigret antecipadamente
 # (evita erros de módulos faltando na primeira execução)
 echo "Instalando dependências de suporte aos coletores..."
-pip install \
+$PYTHON -m pip install \
     aiodns alive-progress python-socks aiohttp-socks \
     xmind pycountry mock future socid-extractor \
     --quiet 2>/dev/null || true
 
 # Instala maigret (sem deps, pois já instalamos acima)
 echo "Instalando maigret..."
-pip install maigret --no-deps --quiet 2>/dev/null || \
-pip install maigret --quiet 2>/dev/null || \
+$PYTHON -m pip install maigret --no-deps --quiet 2>/dev/null || \
+$PYTHON -m pip install maigret --quiet 2>/dev/null || \
 echo "  Aviso: maigret não pôde ser instalado automaticamente."
 
 # Instala holehe (deps nativas podem falhar em alguns sistemas)
 echo "Instalando holehe..."
-pip install holehe --quiet 2>/dev/null || (
+$PYTHON -m pip install holehe --quiet 2>/dev/null || (
     echo "  Tentando instalação alternativa do holehe..."
-    pip install holehe --no-deps --quiet 2>/dev/null && \
-    pip install requests httpx freemail pyisemail pymysql \
-        aiohttp asyncio click \
+    $PYTHON -m pip install holehe --no-deps --quiet 2>/dev/null && \
+    $PYTHON -m pip install requests httpx freemail pyisemail pymysql \
+        aiohttp click \
         --quiet 2>/dev/null
 ) || echo "  Aviso: holehe não pôde ser instalado. Busca por email desativada."
 
 # Instala o ARGUS em modo editável
 echo "Instalando ARGUS..."
-pip install -e . --no-deps --quiet
+$PYTHON -m pip install -e . --no-deps --quiet
 
 # Cria .env se não existir
 if [ ! -f ".env" ]; then
@@ -74,10 +75,10 @@ echo ""
 echo "=== Instalação concluída ==="
 echo ""
 echo "Uso:"
-echo "  argus --username seu-usuario"
-echo "  argus --username seu-usuario --ai --format html --open"
-echo "  argus --email seu@email.com --ai"
+echo "  argus search --username seu-usuario"
+echo "  argus search --username seu-usuario --ai --format html --open"
+echo "  argus search --email seu@email.com --ai"
 echo ""
 echo "Testes E2E:"
-echo "  pip install pytest pytest-asyncio"
+echo "  $PYTHON -m pip install pytest pytest-asyncio"
 echo "  pytest tests/e2e/ -v"

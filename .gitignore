@@ -7,6 +7,6 @@ __pycache__/
 dist/
 build/
 .env
-# reports/  # descomente para ignorar relatórios gerados
+reports/
 .pytest_cache/
 .mypy_cache/
