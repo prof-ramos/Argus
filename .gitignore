@@ -10,3 +10,9 @@ build/
 reports/
 .pytest_cache/
 .mypy_cache/
+
+# OMC runtime artifacts
+.omc/state/
+.omx/state/
+.omx/logs/
+.omx/metrics.json
