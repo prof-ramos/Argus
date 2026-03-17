@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import logging
 import aiohttp
 from typing import List, Optional
@@ -41,8 +42,9 @@ class FalsePositiveFilter:
                 if _is_404_redirect(final_url):
                     return None
                 if resp.status == 200:
-                    result.http_status = 200
-                    return result
+                    validated = copy.copy(result)
+                    validated.http_status = 200
+                    return validated
                 return None
         except Exception as e:
             logger.debug("Validation failed for %s: %s: %s", result.url, type(e).__name__, e)

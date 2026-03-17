@@ -1,5 +1,5 @@
 from .base import AccountResult, ResultStatus
-from .maigret import MaigreCollector
+from .maigret import MaigretCollector
 from .holehe import HoleheCollector
 
-__all__ = ["AccountResult", "ResultStatus", "MaigreCollector", "HoleheCollector"]
+__all__ = ["AccountResult", "ResultStatus", "MaigretCollector", "HoleheCollector"]
