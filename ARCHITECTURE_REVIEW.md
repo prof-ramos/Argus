@@ -6,7 +6,7 @@
 
 O ARGUS segue uma arquitetura de **pipeline sequencial** bem definida:
 
-```
+```text
 CLI (argus.py)
   → Collectors (maigret, holehe)
     → Processing (normalizer → filter → enricher)
@@ -16,7 +16,7 @@ CLI (argus.py)
 
 ### Estrutura de Diretórios
 
-```
+```text
 argus.py                    # Ponto de entrada CLI (Typer)
 ├── collectors/             # Coleta de dados OSINT
 │   ├── base.py             # Modelo base (AccountResult, ResultStatus)
@@ -99,6 +99,7 @@ Os collectors compartilham a mesma interface (`async def collect(target) -> List
 **Impacto:** Nada impede um novo collector de desviar da interface esperada. O `argus.py` depende de um contrato implícito.
 
 **Sugestão:** Criar um `Protocol` ou `ABC`:
+
 ```python
 class Collector(Protocol):
     name: str
@@ -191,7 +192,7 @@ Permitiria uso programático além do CLI:
 
 ```python
 # pipeline.py
-class ArgusaPipeline:
+class ArgusPipeline:
     def __init__(self, collectors, processors, ai_enabled=False):
         self.collectors = collectors
         self.processors = processors
@@ -210,7 +211,7 @@ Para adicionar novos collectors sem modificar `argus.py`:
 ```python
 # collectors/registry.py
 COLLECTOR_REGISTRY = {
-    "username": [MaigreCollector],
+    "username": [MaigretCollector],
     "email": [HoleheCollector],
 }
 
@@ -262,27 +263,35 @@ Substituir `logging` básico por logging estruturado (ex: `structlog`) para faci
 ## 4. Áreas que Seguem Boas Práticas
 
 ### BP1 — Separação de Responsabilidades Clara
+
 Cada módulo tem um propósito bem definido. `collectors/` coleta, `processing/` transforma, `ai/` analisa, `output/` formata. É fácil entender onde cada funcionalidade reside.
 
 ### BP2 — Error Handling nos Collectors
+
 Os collectors **nunca propagam exceções** — sempre retornam `AccountResult` com status de erro. Isso garante que falhas parciais não interrompam o pipeline inteiro (`argus.py` nunca precisa de try/catch para collectors).
 
 ### BP3 — Dataclasses Tipadas
+
 Uso de `@dataclass` para `AccountResult` e `AIReport` em vez de dicts genéricos fornece type safety, documentação inline e facilita IDE support.
 
 ### BP4 — Lazy Initialization do Cliente OpenAI
+
 O `ReportGenerator` só instancia o cliente quando `generate()` é chamado (`report_generator.py:17-23`). Evita custo de conexão quando IA não é solicitada.
 
 ### BP5 — Configuração Externalizada
+
 Todas as configurações sensíveis e ajustáveis estão em variáveis de ambiente com defaults sensatos. O `.env.example` documenta as opções disponíveis.
 
 ### BP6 — Testes E2E com Mocking Adequado
+
 O `conftest.py` fornece fixtures que substituem dependências externas (subprocess, HTTP, OpenAI API). Os testes validam o pipeline completo sem depender de serviços externos.
 
 ### BP7 — XSS Prevention no HTML
+
 O `formatter.py` usa `html.escape()` consistentemente ao gerar HTML, prevenindo injeção de conteúdo malicioso nos relatórios.
 
 ### BP8 — Async para I/O-Bound Operations
+
 Coleta e validação HTTP usam `asyncio` para paralelismo, o que é ideal para operações I/O-bound como chamadas de rede e subprocessos.
 
 ---
