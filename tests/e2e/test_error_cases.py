@@ -32,14 +32,14 @@ class TestCollectorGracefulDegradation:
     def test_maigret_timeout_does_not_crash(
         self, runner, mock_filter_passthrough, tmp_output_dir
     ):
-        """CLI exits cleanly when MaigreCollector returns a TIMEOUT result."""
+        """CLI exits cleanly when MaigretCollector returns a TIMEOUT result."""
         timeout_result = [AccountResult(
             site_name="Maigret",
             status=ResultStatus.TIMEOUT,
             error="Timeout"
         )]
         with patch(
-            "collectors.maigret.MaigreCollector.collect",
+            "collectors.maigret.MaigretCollector.collect",
             new_callable=AsyncMock,
             return_value=timeout_result
         ):
@@ -50,14 +50,14 @@ class TestCollectorGracefulDegradation:
     def test_maigret_error_does_not_crash(
         self, runner, mock_filter_passthrough, tmp_output_dir
     ):
-        """CLI exits cleanly when MaigreCollector returns an ERROR result."""
+        """CLI exits cleanly when MaigretCollector returns an ERROR result."""
         error_result = [AccountResult(
             site_name="Maigret",
             status=ResultStatus.ERROR,
             error="Connection refused"
         )]
         with patch(
-            "collectors.maigret.MaigreCollector.collect",
+            "collectors.maigret.MaigretCollector.collect",
             new_callable=AsyncMock,
             return_value=error_result
         ):
@@ -106,7 +106,7 @@ class TestCollectorGracefulDegradation:
     ):
         """CLI handles empty results from both collectors without error."""
         with patch(
-            "collectors.maigret.MaigreCollector.collect",
+            "collectors.maigret.MaigretCollector.collect",
             new_callable=AsyncMock,
             return_value=[]
         ), patch(
@@ -138,7 +138,7 @@ class TestFilterBehavior:
             metadata={}
         )]
         with patch(
-            "collectors.maigret.MaigreCollector.collect",
+            "collectors.maigret.MaigretCollector.collect",
             new_callable=AsyncMock,
             return_value=fp_result
         ):
@@ -161,7 +161,7 @@ class TestFilterBehavior:
             metadata={}
         )]
         with patch(
-            "collectors.maigret.MaigreCollector.collect",
+            "collectors.maigret.MaigretCollector.collect",
             new_callable=AsyncMock,
             return_value=no_url_result
         ):

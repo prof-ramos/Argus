@@ -1,11 +1,10 @@
 import asyncio
-import webbrowser
 from typing import Optional
 
 import typer
 from rich.console import Console
 
-from collectors.maigret import MaigreCollector
+from collectors.maigret import MaigretCollector
 from collectors.holehe import HoleheCollector
 from processing.normalizer import Normalizer
 from processing.filter import FalsePositiveFilter
@@ -42,7 +41,7 @@ def search(
         async def collect():
             tasks = []
             if username:
-                tasks.append(MaigreCollector().collect(username))
+                tasks.append(MaigretCollector().collect(username))
             if email:
                 tasks.append(HoleheCollector().collect(email))
             return await asyncio.gather(*tasks)
@@ -67,19 +66,25 @@ def search(
             )
 
     # Output
+    target = username or email
     formatter = ReportFormatter()
 
+    valid_formats = ("cli", "json", "html")
+    if output_format not in valid_formats:
+        console.print(f"[yellow]Formato '{output_format}' não reconhecido. Usando 'cli'.[/yellow]")
+        output_format = "cli"
+
     if output_format == "json":
-        output = formatter.to_json(username or email, enriched, ai_report)
+        output = formatter.to_json(target, enriched, ai_report)
         print(output)
-        output_file = OUTPUT_DIR / f"{username or email}_report.json"
+        output_file = OUTPUT_DIR / f"{target}_report.json"
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(output)
         console.print(f"[green]Salvo: {output_file}[/green]")
 
     elif output_format == "html":
-        output = formatter.to_html(username or email, enriched, ai_report)
-        output_file = OUTPUT_DIR / f"{username or email}_report.html"
+        output = formatter.to_html(target, enriched, ai_report)
+        output_file = OUTPUT_DIR / f"{target}_report.html"
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(output)
         console.print(f"[green]Salvo: {output_file}[/green]")
@@ -88,7 +93,7 @@ def search(
             webbrowser.open(output_file.as_uri())
 
     else:
-        formatter.to_cli(username or email, enriched, ai_report)
+        formatter.to_cli(target, enriched, ai_report)
 
 
 @app.command()

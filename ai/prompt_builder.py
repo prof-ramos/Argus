@@ -3,7 +3,7 @@ from typing import List, Dict
 
 class PromptBuilder:
     @staticmethod
-    def build(username: str, results: List[Dict], search_type: str = "username") -> str:
+    def build(target: str, results: List[Dict], search_type: str = "username") -> str:
         platforms = [r["site_name"] for r in results]
         categories = sorted(set(
             r.get("metadata", {}).get("category", "unknown") for r in results
@@ -17,7 +17,7 @@ class PromptBuilder:
 
 Based SOLELY on the list of platforms where a target was found, generate a structured intelligence report.
 
-Target: {username}
+Target: {target}
 Search Type: {search_type}
 Platforms Confirmed ({len(platforms)} total): {", ".join(platforms)}
 High-Value Platforms: {", ".join(high_value) if high_value else "none"}

@@ -16,7 +16,7 @@ from ai.models import AIReport
 
 @pytest.fixture
 def sample_maigret_results():
-    """Simulated results from MaigreCollector (username search)."""
+    """Simulated results from MaigretCollector (username search)."""
     return [
         AccountResult(
             site_name="GitHub",
@@ -96,9 +96,9 @@ def runner():
 
 @pytest.fixture
 def mock_maigret_collect(sample_maigret_results):
-    """Patch MaigreCollector.collect to return sample results."""
+    """Patch MaigretCollector.collect to return sample results."""
     with patch(
-        "collectors.maigret.MaigreCollector.collect",
+        "collectors.maigret.MaigretCollector.collect",
         new_callable=AsyncMock,
         return_value=sample_maigret_results
     ) as mock:

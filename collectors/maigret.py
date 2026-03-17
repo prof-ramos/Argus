@@ -9,7 +9,7 @@ from .base import AccountResult, ResultStatus
 from config.settings import COLLECTOR_TIMEOUT, MAIGRET_TOP_SITES
 
 
-class MaigreCollector:
+class MaigretCollector:
     def __init__(self):
         self.name = "Maigret"
         self.command = "maigret"
@@ -65,11 +65,11 @@ class MaigreCollector:
                 error_msg = stderr.decode("utf-8", errors="ignore").strip()
                 if not error_msg:
                     error_msg = stdout.decode("utf-8", errors="ignore").strip()
-                raise RuntimeError(error_msg or f"{self.command} falhou com exit code {proc.returncode}")
+                raise RuntimeError(error_msg or f"{self.command} não executou com exit code {proc.returncode}")
 
             report_files = sorted(output_dir.glob("*.json"))
             if not report_files:
-                raise RuntimeError(f"{self.command} nao gerou arquivo JSON de saida")
+                raise RuntimeError(f"{self.command} não gerou arquivo JSON de saída")
 
             raw = report_files[0].read_text()
             if not raw.strip():
@@ -110,4 +110,4 @@ class MaigreCollector:
             if candidate.exists():
                 return str(candidate)
 
-        raise FileNotFoundError(f"{self.command} nao instalado no ambiente do projeto")
+        raise FileNotFoundError(f"{self.command} não instalado no ambiente do projeto")

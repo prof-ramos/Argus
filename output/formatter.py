@@ -2,14 +2,13 @@ import json
 import html as html_lib
 from typing import List, Dict, Optional
 from ai.models import AIReport
-from config.settings import OUTPUT_DIR
 
 
 class ReportFormatter:
     @staticmethod
-    def to_json(username: str, results: List[Dict], ai_report: Optional[AIReport] = None) -> str:
+    def to_json(target: str, results: List[Dict], ai_report: Optional[AIReport] = None) -> str:
         report = {
-            "target": username,
+            "target": target,
             "platforms_found": len(results),
             "platforms": results,
             "ai_analysis": ai_report.__dict__ if ai_report else None
@@ -17,17 +16,15 @@ class ReportFormatter:
         return json.dumps(report, indent=2, ensure_ascii=False)
 
     @staticmethod
-    def to_html(username: str, results: List[Dict], ai_report: Optional[AIReport] = None) -> str:
-        safe_username = html_lib.escape(username)
+    def to_html(target: str, results: List[Dict], ai_report: Optional[AIReport] = None) -> str:
+        safe_target = html_lib.escape(target)
 
         platforms_html = "\n".join([
             f"""
             <div class="platform-card">
                 <h3>{html_lib.escape(r['site_name'])}</h3>
-                <a href="{html_lib.escape(r['url'])}" target="_blank" rel="noopener noreferrer">
-                    {html_lib.escape(r['url'])}
-                </a>
-                <span class="category">{html_lib.escape(r['metadata']['category'])}</span>
+                {'<a href="' + html_lib.escape(r['url']) + '" target="_blank" rel="noopener noreferrer">' + html_lib.escape(r['url']) + '</a>' if r.get('url') else '<span>N/A</span>'}
+                <span class="category">{html_lib.escape(r.get('metadata', {}).get('category', 'unknown'))}</span>
             </div>
             """ for r in results
         ])
@@ -63,7 +60,7 @@ class ReportFormatter:
         <html lang="pt-BR">
         <head>
             <meta charset="UTF-8">
-            <title>ARGUS: {safe_username}</title>
+            <title>ARGUS: {safe_target}</title>
             <style>
                 body {{ font-family: -apple-system, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }}
                 .container {{ max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }}
@@ -79,7 +76,7 @@ class ReportFormatter:
         </head>
         <body>
             <div class="container">
-                <h1>ARGUS: {safe_username}</h1>
+                <h1>ARGUS: {safe_target}</h1>
                 <div class="platforms"><h2>Plataformas ({len(results)})</h2>{platforms_html}</div>
                 {insights_html}
             </div>
@@ -88,20 +85,20 @@ class ReportFormatter:
         return html
 
     @staticmethod
-    def to_cli(username: str, results: List[Dict], ai_report: Optional[AIReport] = None):
+    def to_cli(target: str, results: List[Dict], ai_report: Optional[AIReport] = None):
         from rich.console import Console
         from rich.table import Table
         from rich.panel import Panel
 
         console = Console()
-        console.print(f"\n[bold cyan]ARGUS: {username}[/bold cyan]\n")
+        console.print(f"\n[bold cyan]ARGUS: {target}[/bold cyan]\n")
 
         table = Table(title="Plataformas Encontradas")
         table.add_column("Site", style="cyan")
         table.add_column("Categoria", style="magenta")
 
         for r in results:
-            table.add_row(r["site_name"], r["metadata"]["category"])
+            table.add_row(r["site_name"], r.get("metadata", {}).get("category", "unknown"))
 
         console.print(table)
 

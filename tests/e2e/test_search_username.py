@@ -6,7 +6,7 @@ External dependencies (maigret subprocess, HTTP validation) are mocked.
 """
 import pytest
 from argus import app
-from collectors.maigret import MaigreCollector
+from collectors.maigret import MaigretCollector
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +48,7 @@ class TestSearchUsername:
         duplicated = sample_maigret_results + sample_maigret_results
 
         with patch(
-            "collectors.maigret.MaigreCollector.collect",
+            "collectors.maigret.MaigretCollector.collect",
             new_callable=AsyncMock,
             return_value=duplicated
         ):
@@ -73,7 +73,7 @@ class TestSearchUsername:
         from unittest.mock import AsyncMock, patch
 
         with patch(
-            "collectors.maigret.MaigreCollector.collect",
+            "collectors.maigret.MaigretCollector.collect",
             new_callable=AsyncMock,
             return_value=[]
         ):
@@ -104,7 +104,7 @@ class TestSearchUsername:
             },
         }
 
-        results = MaigreCollector()._parse_results(payload)
+        results = MaigretCollector()._parse_results(payload)
         names = [result.site_name for result in results if result.status.value == "found"]
 
         assert "GitHub" in names
