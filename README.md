@@ -1,7 +1,7 @@
 # ARGUS — OSINT Suite com IA
 
 <p align="center">
-  <img src="assets/logo.png" alt="ARGUS Logo" width="400"/>
+  <img src="assets/icon-1773681351396.png" alt="ARGUS Logo" width="400"/>
 </p>
 
 OSINT Suite profissional com coleta paralela, validação HTTP e análise comportamental via IA.
